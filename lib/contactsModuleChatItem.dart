@@ -20,7 +20,7 @@ class _ContactsModuleChatItemState extends State<ContactsModuleChatItem> {
         final contact = widget.storedContacts[index];
         return InkWell(
           onTap: () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (context) => ChatScreen(name:contact['name'],receiverId: (contact['userId']))));
+            Navigator.of(context).push(MaterialPageRoute(builder: (context) => ChatScreen(username: contact['username'],about: contact['about'],name:contact['name'],receiverId: (contact['userId']))));
           },
           child: Padding(
             padding: const EdgeInsets.only(left:10,right:10,bottom: 10,top:10),

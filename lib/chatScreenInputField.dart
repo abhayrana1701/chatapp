@@ -26,7 +26,9 @@ class ChatScreenInputField extends StatefulWidget {
   Function onSent;
   Function() expand;
   Function() showAiDialog;
-  ChatScreenInputField({super.key,required this.showAiDialog,required this.expand,required this.onSent,required this.receiverId,required this.onReturnValue,required this.updateDeliveryStatus,required this.updateLiveChat});
+  String username;
+  String about;
+  ChatScreenInputField({super.key,required this.about,required this.username,required this.showAiDialog,required this.expand,required this.onSent,required this.receiverId,required this.onReturnValue,required this.updateDeliveryStatus,required this.updateLiveChat});
 
   @override
   State<ChatScreenInputField> createState() => _ChatScreenInputFieldState();
@@ -46,15 +48,16 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
   final ScrollController _scrollController2 = ScrollController();
   final ScrollController _scrollController3 = ScrollController();
 
-
+String isgeneratingc="no";
 
   double _textSize = 18.0;
   int aiscreen=1;
   int selectedMinute = 0;
+  int prevaiscreen=-1;
   List<dynamic> questions = [
 
   ];
-
+String chat="";
 
   // Create a FocusNode to attach to the TextField
   FocusNode _focusNode = FocusNode();
@@ -96,7 +99,7 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
   }
 
 
-  Future<List> getChatSuggestionsFromAi(String message) async {
+  Future<List> getChatSuggestionsFromAi(String prompt,int i) async {
     final String apiKey = 'AIzaSyAh_L-SnXqAHCk8POf02nxQN_37Y4Gqxwo'; // Replace with your actual API key
     final String url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=$apiKey';
 
@@ -109,12 +112,13 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
         'contents': [
           {
             'parts': [
-              {'text':"Guidelines for generating response is that messages which i will actually send should be enclosed by triple *** from starting and beginning and no new line characters should be there. Generate 20 messages that i can ask ai model to generate content about. My reltionship with person to whom i will send ai generated messages is: My friend"},
+              {'text':prompt},
             ],
           },
         ],
       }),
     );
+
 
     if (response.statusCode == 200) {
       return extractMessages(response.body);
@@ -123,6 +127,42 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
       return [];
     }
   }
+
+  Future<String> getChatFromAi(String prompt,int i) async {
+    final String apiKey = 'AIzaSyAh_L-SnXqAHCk8POf02nxQN_37Y4Gqxwo'; // Replace with your actual API key
+    final String url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=$apiKey';
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'contents': [
+          {
+            'parts': [
+              {'text':prompt},
+            ],
+          },
+        ],
+      }),
+    );
+
+
+    if (response.statusCode == 200) {
+      // Decode the JSON data into a Dart map
+      Map<String, dynamic> jsonData = jsonDecode(response.body);
+
+      // Extract specific text fields
+      String chat = jsonData['candidates'][0]['content']['parts'][0]['text'];
+      print(response.body);
+      return chat;
+    } else {
+      // Handle the error
+      return "";
+    }
+  }
+  TextEditingController command=TextEditingController();
 
 
   List extractMessages(String input) {
@@ -379,7 +419,7 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
                                                       setState((){
                                                         aiscreen=2;
                                                       });
-                                                      getChatSuggestionsFromAi("").then((value) {
+                                                      getChatSuggestionsFromAi("Guidelines for generating response is that messages which i will actually send should be enclosed by triple *** from starting and beginning and no new line characters should be there. Generate 20 messages that i can ask ai model to generate content about. My reltionship with person to whom i will send ai generated messages is: ${widget.about}",0).then((value) {
                                                         setState(() {
                                                           questions=value;
                                                           print("doneeeeeeeeeeeeeeeeeeeee");
@@ -415,6 +455,7 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
                                                     onTap: (){
                                                       setState((){
                                                         aiscreen=3;
+                                                        prevaiscreen=1;
                                                       });
                                                     },
                                                     child: Container(
@@ -436,26 +477,219 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
                                               child: Padding(
                                                 padding: const EdgeInsets.all(8.0),
                                                 child: Column(
+                                                  mainAxisAlignment: MainAxisAlignment.start,
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
-                                                    TextField(
-                                                      maxLines: 3,
-                                                      style: TextStyle(
-                                                        fontFamily: 'Courier', // Use a monospaced font
-                                                        fontSize:30
+
+                                                Visibility(
+                                                visible: isgeneratingc=="done"?true:false,
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Row(
+                                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                        children: [
+                                                          Text(
+                                                            "Response",
+                                                            style: TextStyle(fontSize: 30, color: Color.fromRGBO(192, 192, 192, 1)),
+                                                          ),
+                                                          GestureDetector(
+                                                              onTap: (){
+                                                                chatController.text=chat;
+                                                                Navigator.of(context).pop();
+                                                              },
+                                                              child: Icon(CupertinoIcons.pencil,color: Color.fromRGBO(192, 192, 192, 1),)
+                                                          )
+                                                        ],
                                                       ),
-                                                      onChanged: (value){
-                                                        print(value.split('\n').length);
-                                                        // final span=aiController.buildTextSpan(context: context, withComposing: false);
-                                                        // final textPainter=TextPainter(
-                                                        //   text:span,
-                                                        //   textDirection: TextDirection.ltr,
-                                                        //   maxLines:3,
-                                                        // );
-                                                        // textPainter.layout(maxWidth: MediaQuery.of(context).size.width * 0.9);
-                                                        // print('Lines are: ${textPainter.computeLineMetrics().length}');
-                                                      },
+                                                      Container(
+                                                        height:MediaQuery.of(context).size.width*0.4,
+                                                        //color:Colors.red,
+                                                        child: SingleChildScrollView(
+                                                          scrollDirection: Axis.vertical,
+                                                          child: Column(
+                                                            children: [
+                                                              Text(chat,style: TextStyle(color:Colors.black),softWrap: true,overflow: TextOverflow.visible,),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      Row(
+                                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                        children: [
+                                                          GestureDetector(
+                                                            onTap:(){
+                                                              setState((){
+                                                                isgeneratingc="no";
+                                                              });
+                                                            },
+                                                            child: Container(
+                                                              decoration: BoxDecoration(
+                                                               color:Color.fromRGBO(243,244,246,1),
+                                                                borderRadius: BorderRadius.circular(10),
+                                                              ),
+                                                              child: Padding(
+                                                                padding: const EdgeInsets.all(4.0),
+                                                                child: Row(
+                                                                  children: [
+                                                                    Icon(CupertinoIcons.pencil,size: 18,),
+                                                                    SizedBox(width:5),
+                                                                    Text("Ask",style: TextStyle(color: Colors.black),),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+
+                                                          GestureDetector(
+                                                            onTap: () {
+                                                              User? currentUser = FirebaseAuth.instance.currentUser;
+                                                              String currentUserId = currentUser?.uid ?? '';
+                                                              final firestore = FirebaseFirestore.instance;
+
+                                                              //Generating unique id for each message
+                                                              var uuid=Uuid();
+                                                              final messageId=uuid.v4();
+                                                              final timestamp = DateTime.now().toIso8601String();
+                                                              //For displaying
+                                                              Map<String, dynamic> messageData = {
+                                                                'senderId': currentUserId,
+                                                                'messageId':messageId,
+                                                                'content': chatController.text.toString(),
+                                                                'timestamp': timestamp,
+                                                                'messageType': "text",
+                                                                'isRead':0,
+                                                                'isReceived':0,
+                                                                'isDelivered':0,
+                                                              };
+                                                              widget.onReturnValue(messageData);
+                                                              SendMessages.sendTextMessage(
+                                                                  message: chat,
+                                                                  receiverId:widget.receiverId,
+                                                                  messageId: messageId,username:widget.username
+                                                              ).then(
+                                                                    (value) {
+                                                                  if(value!=""){
+                                                                    // Pass the data to the ValueNotifier
+                                                                    List data=[value,1];
+                                                                    deliveryStatusNotifier.value = data;
+                                                                    widget.updateDeliveryStatus(value,1);
+                                                                  }
+                                                                },
+                                                              );
+                                                              widget.onSent();
+                                                              Navigator.of(context).pop();
+                                                            },
+                                                            child: Container(
+                                                              decoration: BoxDecoration(
+                                                                gradient: LinearGradient(
+                                                                  colors: [
+                                                                    Color(0xFFFF4081), // Bright neon pink
+                                                                    Color(0xFFFF80AB), // Light neon pink
+                                                                  ],
+                                                                  begin: Alignment.topLeft,
+                                                                  end: Alignment.bottomRight,
+                                                                ),
+                                                                borderRadius: BorderRadius.circular(10),
+                                                              ),
+                                                              child: Padding(
+                                                                padding: const EdgeInsets.all(4.0),
+                                                                child: Row(
+                                                                  children: [
+                                                                    Text("Send",style: TextStyle(color: Colors.white),),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          )
+
+
+                                                        ],
+                                                      )
+
+                                                    ],
+                                                  ),
+                                                ),
+
+                                                    Visibility(
+                                                      visible: isgeneratingc == "yes" ? true : false,
+                                                      child:Transform.scale(
+                                                        scale: 0.8,
+                                                        child: ClipRRect(
+                                                          borderRadius: BorderRadius.all(Radius.circular(15)),
+                                                          child: Lottie.asset(
+                                                            "assets/loading3.json",
+                                                            fit: BoxFit.contain,
+                                                          ),
+                                                        ),
+                                                      )
+
                                                     ),
 
+                                                    Visibility(
+                                                      visible: isgeneratingc=="no"?true:false,
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          Text(
+                                                            "Ask Fluxion AI",
+                                                            style: TextStyle(fontSize: 30, color: Color.fromRGBO(192, 192, 192, 1)),
+                                                          ),
+                                                          TextField(
+                                                            maxLines: 5,
+                                                            controller: command,
+                                                            cursorColor: Color.fromRGBO(1, 102, 255, 1),
+                                                            style: TextStyle(
+                                                              // Add your text styling here if needed
+                                                            ),
+                                                            decoration: InputDecoration(
+                                                              border: InputBorder.none, // Removes the border
+                                                            ),
+                                                            onChanged: (value) {
+                                                              print(value.split('\n').length);
+                                                              // Optionally, you can calculate the number of lines here if needed
+                                                            },
+                                                          ),
+
+
+                                                          SizedBox(height:15),
+                                                          Row(
+                                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                            children: [
+                                                          GestureDetector(
+                                                            onTap:(){
+                                                              setState((){
+                                                                aiscreen=1;
+                                                              });
+                                                            },
+                                                            child: CircleAvatar(
+                                                            backgroundColor:Color.fromRGBO(243,244,246,1),
+                                                                                                              radius: 12,
+                                                                                                              child:Icon(
+                                                            CupertinoIcons.back,
+                                                            color:Colors.black,
+                                                            size: 20,
+                                                                                                              )
+                                                                                                          ),
+                                                          ),
+
+                                                              GenerateButton(onPressed: (){
+                                                                setState((){
+                                                                  isgeneratingc="yes";
+                                                                });
+                                                                 getChatFromAi("Guidelines for generating response is that generate a message based on my prompt. My prompt is: ${command.text.toString()}. Also keep in mind that you have to create only response that i can directly send regardless of saying you have not appropriate info or provide more context. My relationship with person to whom i will send ai generated messages is: ${widget.about}",1).then((value) {
+                                                                   setState(() {
+                                                                     isgeneratingc="done";
+                                                                     chat=value;
+                                                                   });
+                                                                 });
+                                                              }),
+                                                            ],
+                                                          )
+
+                                                        ],
+                                                      ),
+                                                    ),
                                                   ],
                                                 ),
                                               )
@@ -572,7 +806,17 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
                                                               ),
                                                               GenerateButton(
                                                                 onPressed: () {
-                                                                  // Add your generate logic here
+                                                                  setState((){
+                                                                    isgeneratingc="yes";
+                                                                    aiscreen=3;
+                                                                  });
+                                                                  getChatFromAi("Guidelines for generating response is that generate a message based on my prompt. My prompt is: ${questions[selectedMinute]}  My relationship with person to whom i will send ai generated messages is: ${widget.about}",1).then((value) {
+                                                                    setState(() {
+                                                                      isgeneratingc="done";
+                                                                      aiscreen=3;
+                                                                      chat=value;
+                                                                    });
+                                                                  });
                                                                   print('Generating AI content...');
                                                                 },
                                                               )
@@ -636,6 +880,8 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
                           setState(() {
                             aiscreen=1;
                             showLoadingQuestions=true;
+                            isgeneratingc="no";
+                            command.text="";
                           });
                         },
                         icon: Icon(Icons.bolt),
@@ -697,7 +943,7 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
                                                                   onSavedInLocalDb: (chatData){
                                                                     widget.onReturnValue(chatData);
                                                                     print("yesssss");
-                                                                  },
+                                                                  },username: widget.username,
                                                                   onDeliveryStatusUpdated: (messageId,isDelivered){
                                                                 print("updateddddd");
                                                                     widget.updateDeliveryStatus(messageId,isDelivered);
@@ -824,7 +1070,7 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
                                                               await _fileUploadService.uploadFiles([platformFile],receiverId: widget.receiverId,currentUserId: currentUserId,type: 'image',
                                                                   onSavedInLocalDb: (chatData){
                                                                     widget.onReturnValue(chatData);
-                                                                  },
+                                                                  },username: widget.username,
                                                                   onDeliveryStatusUpdated: (messageId,isDelivered){
                                                                     widget.updateDeliveryStatus(messageId,isDelivered);
                                                                   }
@@ -941,7 +1187,7 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
                 SendMessages.sendTextMessage(
                   message: chatController.text.toString(),
                   receiverId:widget.receiverId,
-                  messageId: messageId,
+                  messageId: messageId,username:widget.username
                 ).then(
                       (value) {
                     if(value!=""){

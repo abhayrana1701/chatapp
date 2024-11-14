@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -48,10 +50,22 @@ class DatabaseHelper {
       translateTo TEXT DEFAULT 'English',
       translateFrom TEXT DEFAULT 'Auto Detect Language',
       translateToKey TEXT DEFAULT 'en',
-      translateFromKey TEXT DEFAULT 'auto'
+      translateFromKey TEXT DEFAULT 'auto',
+      about TEXT DEFAULT 'none'
     )
   ''');
   }
+
+  Future<void> updateAbout(String userId, String about) async {
+    final db = await database;
+    await db.update(
+      'contacts',
+      {'about': about},
+      where: 'userId = ?',
+      whereArgs: [userId],
+    );
+  }
+
 
 
   /////////////////////////////////////////
@@ -123,6 +137,45 @@ class DatabaseHelper {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
+
+
+
+  Future<void> updateFilePath({
+    required String messageId,
+    required String userId1,
+    required String userId2,
+    required String newFilePath,
+  }) async {
+    final db = await database; // Get the database instance
+    String tableName = 'chat_${userId1}_$userId2';
+
+    // Retrieve the current content for the specific messageId
+    final List<Map<String, dynamic>> result = await db.query(
+      tableName,
+      columns: ['content'],
+      where: 'messageId = ?',
+      whereArgs: [messageId],
+    );
+
+    if (result.isNotEmpty) {
+      // Parse the content JSON and update the file path
+      Map<String, dynamic> contentJson = jsonDecode(result.first['content']);
+      contentJson['path'] = newFilePath; // Update only the filePath field
+
+      // Update the database with the modified content JSON
+      await db.update(
+        tableName,
+        {'content': jsonEncode(contentJson)},
+        where: 'messageId = ?',
+        whereArgs: [messageId],
+      );
+      print("File path updated for message ID: $messageId in table $tableName");
+    } else {
+      print("Message ID not found: $messageId");
+    }
+  }
+
+
 
   Future<void> updateMessageDeliveryStatus({
     required String messageId,
@@ -317,6 +370,25 @@ class DatabaseHelper {
       whereArgs: [userId],
     );
   }
+
+  // Function to update the 'isReceived' status of a message based on its messageId
+  Future<void> updateReceivedStatus({
+    required String messageId,
+    required String userId1,
+    required String userId2,
+  }) async {
+    final db = await database; // Ensure the database is initialized
+    String tableName = 'chat_${userId1}_$userId2';
+
+    await db.update(
+      tableName,
+      {'isReceived': 1}, // Set isReceived to 1
+      where: 'messageId = ?', // Update where messageId matches
+      whereArgs: [messageId],
+    );
+    print("Received status updated for message ID: $messageId in table $tableName");
+  }
+
 
 
 }

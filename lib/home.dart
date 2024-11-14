@@ -121,9 +121,26 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
       contactsWithRecentChat.add(modifiableContact);
     }
 
-    print("Recent Chat: $contactsWithRecentChat");
+    // Step 4: Sort the contacts based on the timestamp of the most recent chat
+    contactsWithRecentChat.sort((a, b) {
+      final aTimestamp = a['recentChat']?['timestamp'];
+      final bTimestamp = b['recentChat']?['timestamp'];
+
+      // If either timestamp is null, consider it less recent
+      if (aTimestamp == null) return 1;
+      if (bTimestamp == null) return -1;
+
+      // Parse timestamps to DateTime for comparison
+      final aDate = DateTime.parse(aTimestamp);
+      final bDate = DateTime.parse(bTimestamp);
+
+      return bDate.compareTo(aDate); // Sort in descending order (most recent first)
+    });
+
+    print("Sorted Contacts with Recent Chat: $contactsWithRecentChat");
     return contactsWithRecentChat;
   }
+
   Future<void> _fetchContactsWithRecentChat() async {
     contactsWithRecentChat = await getContactsWithRecentChat();
     setState(() {}); // Update the UI after fetching data
@@ -147,7 +164,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
           ),
           IconButton(
             onPressed: (){
-              Navigator.of(context).push(MaterialPageRoute(builder: (context) => AddContacts(),));
+              Navigator.of(context).push(MaterialPageRoute(builder: (context) => AddContacts(),)).then(
+                (value) {
+                  _fetchContactsWithRecentChat();
+                },
+              );
             },
             icon: Icon(Icons.person_add),
           )
@@ -167,7 +188,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
                 final recentChat = contact['recentChat'];
                 final recentMessage = recentChat != null ? recentChat['content'] : 'No messages';
                 final isoDateString= recentChat != null ? recentChat['timestamp'] : '';
-String date='';
+                String date='';
                 void formatIsoDate() {
                   DateTime dateTime = DateTime.parse(isoDateString);
                   DateTime now = DateTime.now();
@@ -198,7 +219,11 @@ String date='';
 
                 return InkWell(
                   onTap: () {
-                    Navigator.of(context).push(MaterialPageRoute(builder: (context) => ChatScreen(name:contact['name'],receiverId: (contact['userId']))));
+                    Navigator.of(context).push(MaterialPageRoute(builder: (context) => ChatScreen(username: contact['username'],about: contact['about'],name:contact['name'],receiverId: (contact['userId'])))).then(
+                      (value) {
+                        _fetchContactsWithRecentChat();
+                      },
+                    );
                     // Handle tap action
                   },
                   child: Padding(
@@ -263,7 +288,11 @@ String date='';
 
       floatingActionButton: ElevatedButton(
         onPressed: (){
-          Navigator.of(context).push(MaterialPageRoute(builder: (context) => Contacts(),));
+          Navigator.of(context).push(MaterialPageRoute(builder: (context) => Contacts(),)).then(
+            (value) {
+              _fetchContactsWithRecentChat();
+            },
+          );
         },
         style: ElevatedButton.styleFrom(
           shape: CircleBorder(),

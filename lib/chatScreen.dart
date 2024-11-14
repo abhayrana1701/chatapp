@@ -8,6 +8,7 @@ import 'package:mychatapplication/chatScreenInputField.dart';
 import 'package:mychatapplication/lastScene.dart';
 import 'package:mychatapplication/sendMessages.dart';
 import 'package:mychatapplication/showChatRecommendations.dart';
+import 'package:mychatapplication/viewProfile.dart';
 import 'package:uuid/uuid.dart';
 import 'chatScreenOptionsMenu.dart';
 import 'databaseHelper.dart';
@@ -19,15 +20,15 @@ import 'chatScreenInputField.dart';
 import 'viewContactDetails.dart';
 
 class ChatScreen extends StatefulWidget {
-  String receiverId,name;
-  ChatScreen({super.key,required this.receiverId,required this.name});
+  String receiverId,name,username,about;
+  ChatScreen({super.key,required this.receiverId,required this.name,required this.username,required this.about});
 
   @override
   State<ChatScreen> createState() => ChatScreenState();
 
 }
 
-class ChatScreenState extends State<ChatScreen> {
+class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
 
   //TextEditingController
   TextEditingController chatController=TextEditingController();
@@ -47,6 +48,10 @@ class ChatScreenState extends State<ChatScreen> {
     // TODO: implement initState
     super.initState();
     loadChats();
+    Timer.periodic(Duration(milliseconds: 500), (timer) {
+      //loadChats();
+    });
+    WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
     //receiveMessages();
 
@@ -69,21 +74,41 @@ class ChatScreenState extends State<ChatScreen> {
       });
     });
 
-    deliveryStatusNotifier.addListener(() {
-      // for (var map in chatsList) {
-      //   List? messageId=deliveryStatusNotifier.value;
-      //   if (map['messageId'] ==messageId?[0]) {
-      //     //map['isDelivered'] = 1;
-      //     break; // Exit loop once the element is found and updated
-      //   }
-      // }
-      // setState(() {
-      //
-      // });
+    fcmUpdateReceivedStatusNotifier.addListener(() {
+
+      fcmDataR = fcmDataNotifier.value;
+      final messageId = fcmDataR?["messageId"];
+      setState(() {
+        print("eneterd");
+        //tempp
+        loadChats();
+        for (int i = 1; i < chatsList.length; i++) {
+          var chat = chatsList[i];
+          //print(chat['messageId']);
+          if (chat['messageId'] == messageId) {
+            print("Message Content: ${chat['content']}");
+            chat['isReceived'] = 1;
+          }
+        }
+        print(messageId);
+      });
+    });
+
+
+    fcmDeleteNotifier.addListener(() {
+      setState(() {
+        loadChats();
+      });
     });
 
   }
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
+  Map<String, dynamic>? fcmDataR;
   bool showScrollToBottom=false;
   void _onScroll() {
     // Check if the scroll position is not at the bottom
@@ -102,27 +127,44 @@ class ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  //Load chats stored in database
-  loadChats()async{
-    DatabaseHelper databaseHelper=DatabaseHelper();
+  loadChats() async {
+    DatabaseHelper databaseHelper = DatabaseHelper();
     User? currentUser = FirebaseAuth.instance.currentUser;
     String currentUserId = currentUser?.uid ?? '';
-    var tempChatsList= await databaseHelper.loadChats(
+
+    // Load chats from the database
+    var tempChatsList = await databaseHelper.loadChats(
       currentUserId,
-      widget.receiverId
+      widget.receiverId,
     );
+
+    // Update the state with the loaded chats, but don't clear the chatsList right away
+    List<dynamic> previousChatsList = List.from(chatsList);  // Store previous state
+
+    // Now update the chats list with new data
     setState(() {
+      chatsList.clear();
+      chatsList.addAll([{}]);  // Add empty object if needed for consistency
       chatsList.addAll(tempChatsList);
       print(chatsList);
     });
-    // Scroll to the bottom after the layout has been rendered
+
+    // Scroll to the bottom after the layout has been rendered, but only if new chats were loaded
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Scroll after chats have been added and rendered
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(_scrollController.position.maxScrollExtent, duration: Duration(milliseconds: 900), curve: Curves.easeOut);
+        // Only scroll if the size of the loaded chats is greater than the previous list
+        if (tempChatsList.length > previousChatsList.length) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: Duration(milliseconds: 900),
+            curve: Curves.easeOut,
+          );
+        }
       }
     });
   }
+
+
 
 
   //Variables for receiveMessages to work
@@ -297,6 +339,24 @@ class ChatScreenState extends State<ChatScreen> {
 
  double height=50;
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // Detect when the app regains focus
+    if (state == AppLifecycleState.resumed) {
+      // Call the function you want when the app regains focus
+      onAppResumed();
+    }
+  }
+
+  void onAppResumed() {
+    // Your custom logic when the app regains focus
+    print("App has regained focus!");
+    // You can call any specific function here
+    loadChats();
+  }
+
 
 
   @override
@@ -317,9 +377,11 @@ class ChatScreenState extends State<ChatScreen> {
               onTap:(){
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => ViewContactDetails(),
+                    builder: (context) => ViewProfile(userid: widget.receiverId,username: widget.username,about: widget.about,name: widget.name,),
                   ),
-                );
+                ).then((value) {
+                  widget.about=value;
+                },);
 
               },
               child:CircleAvatar(),
@@ -371,7 +433,7 @@ class ChatScreenState extends State<ChatScreen> {
                 Expanded(child:ShowChats(chatsList: chatsList,scrollController: _scrollController,receiverId: widget.receiverId,)),
 
 
-                !expandRecommendations?chatRecommendations.isEmpty?Container():SizedBox(height:50,child: ShowChatRecommendations(recommendations: chatRecommendations,receiverId: widget.receiverId,
+                !expandRecommendations?chatRecommendations.isEmpty?Container():SizedBox(height:50,child: ShowChatRecommendations(username: widget.name,recommendations: chatRecommendations,receiverId: widget.receiverId,
                   updateDeliveryStatus: (messageId, isDelivered) {
                   for (var map in chatsList) {
                     if (map['messageId'] == messageId) {
@@ -406,7 +468,7 @@ class ChatScreenState extends State<ChatScreen> {
                   ),
                   height:height,
 
-                  child: ChatScreenInputField(receiverId: widget.receiverId, onReturnValue: (Map<String, dynamic> value) {
+                  child: ChatScreenInputField(about: widget.about,username: widget.name,receiverId: widget.receiverId, onReturnValue: (Map<String, dynamic> value) {
                       setState(() {
                         chatsList.add(value);
                       });
@@ -434,7 +496,8 @@ class ChatScreenState extends State<ChatScreen> {
                         }
                       }
                       setState(() {
-
+                          loadChats();
+                          print("good");
                       });
 
                     } ,
@@ -497,7 +560,7 @@ class ChatScreenState extends State<ChatScreen> {
 
                                 ////
 
-                                SendMessages.sendTextMessage(receiverId: widget.receiverId, message:message, messageId: messageId).then(
+                                SendMessages.sendTextMessage(receiverId: widget.receiverId, message:message, messageId: messageId,username: widget.name).then(
                                       (value) {
                                     if(value!=""){
                                       for (var map in chatsList) {

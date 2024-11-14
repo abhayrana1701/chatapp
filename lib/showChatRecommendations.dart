@@ -10,7 +10,8 @@ class ShowChatRecommendations extends StatefulWidget {
   Function(String messageId,int isDelivered)updateDeliveryStatus;
   Function(Map<String, dynamic>) onReturnValue;
   Function() expand;
-  ShowChatRecommendations({super.key,required this.onReturnValue,required this.expand,required this.recommendations,required this.receiverId,required this.updateDeliveryStatus});
+  String username;
+  ShowChatRecommendations({super.key,required this.username,required this.onReturnValue,required this.expand,required this.recommendations,required this.receiverId,required this.updateDeliveryStatus});
 
   @override
   State<ShowChatRecommendations> createState() => _ShowChatRecommendationsState();
@@ -55,7 +56,7 @@ class _ShowChatRecommendationsState extends State<ShowChatRecommendations> {
                       'isDelivered':0,
                     };
                     widget.onReturnValue(messageData);
-                    SendMessages.sendTextMessage(receiverId: widget.receiverId, message:message, messageId: messageId).then(
+                    SendMessages.sendTextMessage(receiverId: widget.receiverId, message:message, messageId: messageId,username: widget.username).then(
                           (value) {
                         if(value!=""){
                           widget.updateDeliveryStatus(value,1);

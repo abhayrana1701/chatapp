@@ -10,6 +10,7 @@ class SendMessages{
     required String receiverId,
     required String message,
     required messageId,
+    required username,
   }) async {
 
     User? currentUser = FirebaseAuth.instance.currentUser;
@@ -26,6 +27,7 @@ class SendMessages{
       'isRead':0,
       'isReceived':0,
       'isDelivered':0,
+
     };
 
     // Store the message in SQLite
@@ -53,6 +55,7 @@ class SendMessages{
         'messageType': "text",
         'isRead':0,
         'isReceived':0,
+        'username':username
       };
 
       // Add the message to Firestore

@@ -28,6 +28,7 @@ class FileUploadService {
       {required String currentUserId,
         required String receiverId,
         required String type,
+        required username,
         required Function(Map<String, dynamic> chatData) onSavedInLocalDb,
         required Function(String messageId,int isDelivered) onDeliveryStatusUpdated,
       }) async {
@@ -105,7 +106,11 @@ class FileUploadService {
             'messageType': type,
             'isRead':0,
             'isReceived':0,
-            'isDelivered':0
+            'isDelivered':0,
+            'receiverId':receiverId,
+            'username':username,
+            'size': file.size,
+            'extension':type=='file'?file.extension:file.name.split('.').last,
           });
 
           databaseHelper.updateMessageDeliveryStatus(messageId: messageId, isDelivered: 1, userId1: currentUserId, userId2: receiverId);
