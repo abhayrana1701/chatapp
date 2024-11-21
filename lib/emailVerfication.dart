@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:mychatapplication/signin.dart';
 import 'Authentication Module Components/authModuleHeading.dart';
 import 'package:flutter_otp_text_field/flutter_otp_text_field.dart';
 import 'Resuable Components/showSnackbar.dart';
@@ -141,7 +142,7 @@ class _EmailVerificationState extends State<EmailVerification> {
                       signup().then((value) {
                         //Navigator.of(context).push(MaterialPageRoute(builder: (context) => Home(),));
                         Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (context) => Home()),
+                            MaterialPageRoute(builder: (context) => Signin()),
                                 (Route<dynamic> route) => false // This removes all previous routes
                         );
 

@@ -18,9 +18,9 @@ class _AddContactsState extends State<AddContacts> {
 
   //Store Search results
   List<Map<String, dynamic>> searchResults = [];
-
-  // To store user type (contact, requestSent, requestReceived)
-  Map<String, String> userTypes = {};
+  List<Map<String, dynamic>> requestsSent = [];
+  List<Map<String, dynamic>> requestsReceived = [];
+  List<Map<String, dynamic>> contacts = [];
 
   //Show loading status
   bool isLoading=false;
@@ -30,7 +30,6 @@ class _AddContactsState extends State<AddContacts> {
     setState(() {
       isLoading = true;
       searchResults = [];
-      userTypes = {}; // Clear previous user types
     });
 
     User? currentUser = FirebaseAuth.instance.currentUser;
@@ -51,11 +50,35 @@ class _AddContactsState extends State<AddContacts> {
             .collection('requestsSent')
             .get();
 
+        List<Map<String, dynamic>> requestsSentResults = [];
+        // Iterate through each document and add to results list
+        for (var doc in requestsSentSnapshot.docs) {
+          Map<String, dynamic> userData = doc.data() as Map<String, dynamic>;
+          userData['id'] = doc.id; // Include the document ID if needed
+          requestsSentResults.add(userData);
+        }
+
+        setState(() {
+          requestsSent = requestsSentResults;
+        });
+
         QuerySnapshot requestsReceivedSnapshot = await FirebaseFirestore.instance
             .collection('userDetails')
             .doc(currentUserId)
             .collection('requestsReceived')
             .get();
+
+        List<Map<String, dynamic>> requestsReceivedResults = [];
+        // Iterate through each document and add to results list
+        for (var doc in requestsReceivedSnapshot.docs) {
+          Map<String, dynamic> userData = doc.data() as Map<String, dynamic>;
+          userData['id'] = doc.id; // Include the document ID if needed
+          requestsReceivedResults.add(userData);
+        }
+
+        setState(() {
+          requestsReceived = requestsReceivedResults;
+        });
 
         QuerySnapshot contactsSnapshot = await FirebaseFirestore.instance
             .collection('userDetails')
@@ -63,18 +86,18 @@ class _AddContactsState extends State<AddContacts> {
             .collection('contacts')
             .get();
 
-        // Add all userIds from these subcollections to exclude from the search
-        for (var doc in requestsSentSnapshot.docs) {
-          userTypes[doc.id] = 'requestSent'; // Store type for icon display
-        }
-
-        for (var doc in requestsReceivedSnapshot.docs) {
-          userTypes[doc.id] = 'requestReceived'; // Store type for icon display
-        }
-
+        List<Map<String, dynamic>> contactsResults = [];
+        // Iterate through each document and add to results list
         for (var doc in contactsSnapshot.docs) {
-          userTypes[doc.id] = 'contact'; // Store type for icon display
+          Map<String, dynamic> userData = doc.data() as Map<String, dynamic>;
+          userData['id'] = doc.id; // Include the document ID if needed
+          contactsResults.add(userData);
         }
+
+        setState(() {
+          contacts = contactsResults;
+        });
+
       }
 
       // Perform search by username
@@ -86,11 +109,11 @@ class _AddContactsState extends State<AddContacts> {
 
       List<Map<String, dynamic>> results = [];
 
+      // Iterate through each document and add to results list
       for (var doc in userSnapshot.docs) {
-          if(currentUserId!=doc.id){ // Avoid showing current user in search result
-            results.add(doc.data() as Map<String, dynamic>);
-            userTypes[doc.id] ??= 'newUser'; // New user who isn't in contacts/requests
-          }
+        Map<String, dynamic> userData = doc.data() as Map<String, dynamic>;
+        userData['id'] = doc.id; // Include the document ID if needed
+        results.add(userData);
       }
 
       setState(() {
@@ -162,7 +185,9 @@ class _AddContactsState extends State<AddContacts> {
 
             searchResults.length==0?
             ShowRequestsReceived():
-            ShowContact(contacts: searchResults,userTypes: userTypes,),
+            ShowContact(refresh: (){setState(() {
+              _searchUsers(searchController.text.toString());
+            });},isClicked: false,searchResults: searchResults,requestsSent: requestsSent,requestsReceived: requestsReceived,contacts: contacts,),
 
           ],
         ),

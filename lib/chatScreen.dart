@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:animated_icon/animated_icon.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:mychatapplication/chatScreenInputField.dart';
 import 'package:mychatapplication/lastScene.dart';
 import 'package:mychatapplication/sendMessages.dart';
@@ -20,8 +23,9 @@ import 'chatScreenInputField.dart';
 import 'viewContactDetails.dart';
 
 class ChatScreen extends StatefulWidget {
-  String receiverId,name,username,about;
-  ChatScreen({super.key,required this.receiverId,required this.name,required this.username,required this.about});
+  String receiverId,name,username,about,translateToKey;
+  dynamic profilePic;
+  ChatScreen({super.key,required this.translateToKey,required this.profilePic,required this.receiverId,required this.name,required this.username,required this.about});
 
   @override
   State<ChatScreen> createState() => ChatScreenState();
@@ -43,11 +47,15 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
   //Chat recommendations
   List chatRecommendations=[];
   Map<String, dynamic>? fcmData;
+  final Random random = Random();
+  late final int hi;
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
     loadChats();
+    hi= Random().nextInt(4) + 2; // Generates a random value from 2 to 5
+
     Timer.periodic(Duration(milliseconds: 500), (timer) {
       //loadChats();
     });
@@ -377,14 +385,18 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
               onTap:(){
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => ViewProfile(userid: widget.receiverId,username: widget.username,about: widget.about,name: widget.name,),
+                    builder: (context) => ViewProfile(profilePic: widget.profilePic,userid: widget.receiverId,username: widget.username,about: widget.about,name: widget.name,),
                   ),
                 ).then((value) {
                   widget.about=value;
                 },);
 
               },
-              child:CircleAvatar(),
+              child:CircleAvatar(
+                backgroundColor:  Color.fromRGBO(243,244,246,1,),
+                child:widget.profilePic==null?Icon(CupertinoIcons.person,color: Color.fromRGBO(1,102,255,1),):null,
+                backgroundImage:widget.profilePic!=null ?MemoryImage(widget.profilePic):null,
+              ),
             ),
             SizedBox(width:5),
             Column(
@@ -414,6 +426,8 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
               //   }
               // });
 
+            },deleteChat: (){
+              loadChats();
             },
           )
         ],
@@ -430,7 +444,51 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
             Column(
               children: [
 
-                Expanded(child:ShowChats(chatsList: chatsList,scrollController: _scrollController,receiverId: widget.receiverId,)),
+                if(chatsList.length==1 )...[
+                  Container(
+                    width:MediaQuery.of(context).size.width*0.7,
+                    height:MediaQuery.of(context).size.width*0.7,
+                    decoration:BoxDecoration(
+                      borderRadius:BorderRadius.all(Radius.circular(15)),
+                      color:Color.fromRGBO(243,244,246,1,),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Lottie.asset(
+                        'assets/hi$hi.json',
+                        fit: BoxFit.fill,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+                    child: Text(
+                      "Feeling chatty? Say Hi and start the conversation!",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    child: Text(
+                      "Say the magic words – a friendly 'Hi' to get started! 💬",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ),
+
+
+                ],
+
+                Expanded(child:ShowChats(translateToKey: widget.translateToKey,chatsList: chatsList,scrollController: _scrollController,receiverId: widget.receiverId,)),
 
 
                 !expandRecommendations?chatRecommendations.isEmpty?Container():SizedBox(height:50,child: ShowChatRecommendations(username: widget.name,recommendations: chatRecommendations,receiverId: widget.receiverId,

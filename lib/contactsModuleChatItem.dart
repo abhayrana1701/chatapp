@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'chatScreen.dart';
@@ -20,7 +21,7 @@ class _ContactsModuleChatItemState extends State<ContactsModuleChatItem> {
         final contact = widget.storedContacts[index];
         return InkWell(
           onTap: () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (context) => ChatScreen(username: contact['username'],about: contact['about'],name:contact['name'],receiverId: (contact['userId']))));
+            Navigator.of(context).push(MaterialPageRoute(builder: (context) => ChatScreen(translateToKey: contact['translateToKey'],profilePic: contact['profilePic'],username: contact['username'],about: contact['about'],name:contact['name'],receiverId: (contact['userId']))));
           },
           child: Padding(
             padding: const EdgeInsets.only(left:10,right:10,bottom: 10,top:10),
@@ -28,6 +29,9 @@ class _ContactsModuleChatItemState extends State<ContactsModuleChatItem> {
               children: [
                 CircleAvatar(
                   radius: 25,
+                  backgroundColor:  Color.fromRGBO(243,244,246,1,),
+                  child:contact["profilePic"!]==null?Icon(CupertinoIcons.person,color: Color.fromRGBO(1,102,255,1),):null,
+                  backgroundImage:contact["profilePic"!]!=null ?MemoryImage(contact["profilePic"]):null,
                 ),
                 SizedBox(width: 10),
                 Expanded(

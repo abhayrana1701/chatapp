@@ -6,7 +6,8 @@ import 'package:mychatapplication/databaseHelper.dart';
 
 class ViewProfile extends StatefulWidget {
   String name,username,about,userid;
-   ViewProfile({super.key,required this.name,required this.username,required this.about,required this.userid});
+  dynamic profilePic;
+   ViewProfile({super.key,required this.profilePic,required this.name,required this.username,required this.about,required this.userid});
 
   @override
   State<ViewProfile> createState() => _ViewProfileState();
@@ -57,11 +58,7 @@ class _ViewProfileState extends State<ViewProfile> with SingleTickerProviderStat
             //   fit: BoxFit.cover,
             // )
             //     :
-            background:
-            Image.asset(
-              'assets/sports.jpg', // Default image if profilePicBytes is null
-              fit: BoxFit.cover,
-            ),
+            background:widget.profilePic!=null?Image.memory(widget.profilePic,fit: BoxFit.cover,):null,
           ),
           stretch: true, // Enables the stretching effect
           stretchTriggerOffset: 100.0, // Controls how much to pull down to stretch

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'contactsModuleChatItem.dart';
 import 'contactsModuleAddNewContactOption.dart';
 import 'databaseHelper.dart';
+import 'dart:typed_data';
+import 'package:http/http.dart' as http;
 
 class Contacts extends StatefulWidget {
   const Contacts({super.key});
@@ -47,14 +49,32 @@ class _ContactsState extends State<Contacts> {
           .doc(doc.id)
           .get();
 
-      bool isContactExists = await _dbHelper.isContactExists(doc['userId']);
+      bool isContactExists;
+      try{
+        isContactExists = await _dbHelper.isContactExists(doc['userId']);
+      }catch(e){
+        continue;
+      }
+
+      dynamic pic=null;
+      if(userDoc['profilePic']!=""){
+        // Send an HTTP GET request to fetch the image
+        final response = await http.get(Uri.parse(userDoc['profilePic']));
+
+        // If the request is successful, convert the response body (image data) to bytes
+        if (response.statusCode == 200) {
+          pic= response.bodyBytes; // Return the image bytes as Uint8List
+        } else {
+          pic =null;
+        }
+      }
 
       if (!isContactExists) {
         Map<String, dynamic> contact = {
           'userId': userDoc['userId'],
           'username': userDoc['username'],
           'name': userDoc['name'],
-          'profilePic': userDoc['profilePic'],
+          'profilePic': pic,
         };
         await _dbHelper.insertContact(contact);
         _fetchStoredContacts();

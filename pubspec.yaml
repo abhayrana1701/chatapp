@@ -57,8 +57,10 @@ dependencies:
   animated_icon:
   lottie:
   wheel_slider:
+  share:
   path_provider:
   async:
+
   #rive_animated_icon:
   #camera: ^0.11.0+2
 

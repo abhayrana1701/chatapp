@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:translator/translator.dart';
 import 'chatScreen.dart';
 import 'databaseHelper.dart';
 import 'signin.dart';
@@ -97,6 +98,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
         showNotification(message);
+        DatabaseHelper db=DatabaseHelper();
+        final settings = await db.getLanguageTranslationSettings(message.data['senderId']);
+        if(settings?['isLanguageTranslationEnabled']==1){
+          print("yes");
+          User? user = FirebaseAuth.instance.currentUser;
+          final translator = GoogleTranslator();
+          var translation = await translator.translate("${message.data['content']}", to: settings?["translateToKey"], from: settings?["translateFromKey"]);
+          db.updateMessageContent(user!.uid, message.data['senderId'],message.data['messageId'], translation.text);
+          print("Message translated");
+        }
         print('Message saved to SQLite');
       }
     }
@@ -192,9 +203,19 @@ void main() async {
       print("Received foreground message: ${message.data}");
 
       if (message.data.isNotEmpty) {
-        fcmDataNotifier.value = message.data;
+        // fcmDataNotifier.value = message.data;
         await saveMessageToSQLite(message.data);
         print('Message saved to SQLite');
+        DatabaseHelper db=DatabaseHelper();
+        final settings = await db.getLanguageTranslationSettings(message.data['senderId']);
+        if(settings?['isLanguageTranslationEnabled']==1){
+          print("yes");
+          User? user = FirebaseAuth.instance.currentUser;
+          final translator = GoogleTranslator();
+          var translation = await translator.translate("${message.data['content']}", to: settings?["translateToKey"], from: settings?["translateFromKey"]);
+          db.updateMessageContent(user!.uid, message.data['senderId'],message.data['messageId'], translation.text);
+          print("Message translated");
+        }
       }
 
       if (message.notification != null) {
@@ -259,7 +280,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       debugShowCheckedModeBanner: false,
-      home: isLoggedIn ? Home() : Signin(),
+      //home: isLoggedIn ? Home() : Signin(),
+      home:Signin(),
     );
   }
 }

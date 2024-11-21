@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'dart:typed_data';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -15,7 +15,7 @@ class DatabaseHelper {
 
   // Initialize the database for a specific user
   Future<Database> initDatabase(String userId) async {
-    _database = await _initUserDatabase(userId);
+    _database = await _initUserDatabase(userId+"aaaahlaak");
     return _database!;
   }
 
@@ -44,7 +44,7 @@ class DatabaseHelper {
       userId TEXT,
       username TEXT,
       name TEXT,
-      profilePic TEXT,
+      profilePic BLOB,
       isLiveChatEnabled INTEGER DEFAULT 0,
       isLanguageTranslationEnabled INTEGER DEFAULT 0,
       translateTo TEXT DEFAULT 'English',
@@ -54,6 +54,100 @@ class DatabaseHelper {
       about TEXT DEFAULT 'none'
     )
   ''');
+
+    await db.execute('''
+    CREATE TABLE user_data (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL,
+      userId TEXT NOT NULL,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      profilePic BLOB
+    )
+    ''');
+
+  }
+
+
+  Future<Map<String, dynamic>?> getLanguageTranslationSettings(String userId) async {
+    final db = await database;
+    try {
+      // Query the database to get the required fields for the given userId
+      final List<Map<String, dynamic>> result = await db.query(
+        'contacts',
+        columns: [
+          'isLanguageTranslationEnabled',
+          'translateToKey',
+          'translateFromKey',
+        ],
+        where: 'userId = ?',
+        whereArgs: [userId],
+      );
+
+      // Check if the result contains any data
+      if (result.isNotEmpty) {
+        return result.first; // Return the first matching row
+      } else {
+        return null; // No data found for the given userId
+      }
+    } catch (e) {
+      print('Error fetching language translation settings: $e');
+      return null; // Return null on error
+    }
+  }
+
+
+
+  Future<void> updateProfilePic(String userId, Uint8List profilePic) async {
+    final db = await database;
+
+    try {
+      // Update the profilePic field for the given userId
+      await db.update(
+        'user_data',
+        {'profilePic': profilePic},
+        where: 'userId = ?',
+        whereArgs: [userId],
+      );
+
+      print("Profile picture updated successfully in SQLite.");
+    } catch (e) {
+      print("Error updating profile picture: $e");
+    }
+  }
+
+  Future<int> insertUser({
+    required String username,
+    required String userId,
+    required String name,
+    required String email,
+    Uint8List? profilePic,
+  }) async {
+    final db = await database;
+
+    final data = {
+      'username': username,
+      'userId': userId,
+      'name': name,
+      'email': email,
+      'profilePic': profilePic,
+    };
+
+    await db.delete('user_data');
+    return await db.insert('user_data', data);
+  }
+
+  // Fetch single user data by id (assuming only one user exists)
+  Future<Map<String, dynamic>?> getUser() async {
+    final db = await database;
+
+    // Fetch the first user from the table (assuming only one)
+    List<Map<String, dynamic>> result = await db.query('user_data', limit: 1);
+
+    if (result.isNotEmpty) {
+      return result.first; // Return the first (and only) record
+    }
+    return null; // Return null if no user found
   }
 
   Future<void> updateAbout(String userId, String about) async {
@@ -124,6 +218,44 @@ class DatabaseHelper {
     '''
     );
   }
+
+  Future<void> updateMessageContent(
+      String userId1, String userId2, String messageId, String newContent) async {
+    Database db = await database;
+    String tableName = 'chat_${userId1}_${userId2}';
+
+    try {
+      // Perform the update query
+      int count = await db.update(
+        tableName,
+        {'content': newContent}, // New value for the `content` field
+        where: 'messageId = ?',  // Condition for the update
+        whereArgs: [messageId],  // Arguments to prevent SQL injection
+      );
+
+      if (count > 0) {
+        print('Message updated successfully.');
+      } else {
+        print('Message not found with messageId: $messageId');
+      }
+    } catch (e) {
+      print('Error updating message content: $e');
+    }
+  }
+
+
+  Future<void> deleteTable(String userId1, String userId2) async {
+    Database db = await database;
+    String tableName = 'chat_${userId1}_${userId2}';
+    try {
+      // Execute the SQL command to delete all rows from the table
+      await db.delete(tableName);
+      print('All rows from table $tableName have been deleted.');
+    } catch (e) {
+      print('Error deleting rows from table $tableName: $e');
+    }
+  }
+
 
 
 

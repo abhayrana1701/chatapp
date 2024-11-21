@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'Resuable Components/showSnackbar.dart';
@@ -11,6 +12,8 @@ import 'recoverPassword.dart';
 import 'signup1.dart';
 import 'fcmTokenHandler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:typed_data';
+import 'package:http/http.dart' as http;
 
 class Signin extends StatefulWidget {
   const Signin({super.key});
@@ -20,6 +23,68 @@ class Signin extends StatefulWidget {
 }
 
 class _SigninState extends State<Signin> {
+
+
+  Future<void> fetchAndSaveUserDetails(String userId) async {
+    try {
+      // Step 1: Fetch the user data from Firestore
+      var userDoc = await FirebaseFirestore.instance
+          .collection('userDetails') // Replace with your collection name
+          .doc(userId)
+          .get();
+
+      if (userDoc.exists) {
+        var userData = userDoc.data()!;
+
+        // Step 2: Handle profile picture URL (check for null or empty string)
+        String? profilePicUrl = userData['profilePic']; // Assuming 'profilePicUrl' field is available
+        Uint8List? profilePic;
+
+        if (profilePicUrl != null && profilePicUrl.isNotEmpty) {
+          // Only download if the URL is not empty
+          profilePic = await downloadProfilePicture(profilePicUrl);
+        } else {
+          // Handle case where there's no profile picture URL (either null or empty)
+          profilePic = null;
+        }
+
+        // Step 3: Store the data in SQLite database
+        DatabaseHelper db = DatabaseHelper();
+        await db.insertUser(
+          username: userData['username'],
+          userId: userData['userId'],
+          name: userData['name'],
+          email: userData['email'],
+          profilePic: profilePic,
+        );
+
+        // Step 4: Update the UI
+        setState(() {
+
+        });
+      }
+    } catch (e) {
+      print("Error fetching user data: $e");
+    }
+  }
+
+
+  Future<Uint8List?> downloadProfilePicture(String url) async {
+    try {
+      // Download the image from Firebase Storage using the URL
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        return response.bodyBytes; // Return the image data as bytes (Uint8List)
+      } else {
+        print("Failed to download profile picture");
+        return null;
+      }
+    } catch (e) {
+      print("Error downloading profile picture: $e");
+      return null;
+    }
+  }
+
 
   //TextEditingControllers
   TextEditingController emailController=TextEditingController();
@@ -43,7 +108,8 @@ class _SigninState extends State<Signin> {
 
       //Initialize the user-specific database
       await DatabaseHelper().initDatabase(userCredential.user!.uid);
-
+      DatabaseHelper db=DatabaseHelper();
+      await fetchAndSaveUserDetails(userCredential.user!.uid);
       //On Successful sign-in
       //Store FCM token
       FCMTokenHandler().storeFCMToken(userCredential.user!.uid);

@@ -11,8 +11,9 @@ import 'package:mychatapplication/sendMessages.dart';
 class ChatScreenOptionsMenu extends StatefulWidget {
   Function translateLanguage;
   String receiverId;
+  Function deleteChat;
   Function(String liveChat) updateLiveChat;
-  ChatScreenOptionsMenu({super.key,required this.translateLanguage,required this.receiverId,required this.updateLiveChat});
+  ChatScreenOptionsMenu({super.key,required this.deleteChat,required this.translateLanguage,required this.receiverId,required this.updateLiveChat});
 
   @override
   State<ChatScreenOptionsMenu> createState() => _ChatScreenOptionsMenuState();
@@ -334,6 +335,72 @@ class _ChatScreenOptionsMenuState extends State<ChatScreenOptionsMenu> {
                   );
                 },
               );
+            },
+          ),
+
+          PopupMenuItem<String>(
+            value: 'Option 1',
+            child: Option(icon: FontAwesomeIcons.trash,text: "Delete",iconColor:Color.fromRGBO(250,101,51, 1)),
+            onTap: ()async{
+
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: Align(alignment:Alignment.center,child: Text('Delete Chat')),
+                    backgroundColor: Color.fromRGBO(243,244,246,1,),
+                    contentPadding: EdgeInsets.only(top:15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10), // Set the border radius here
+                    ),
+                    content: Column(
+                      // crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text('Are you sure you want to delete all Chat?'),
+                        SizedBox(height: 15,),
+                        Container(
+                            height:0.5,
+                            color:Colors.grey
+                        ),
+                        InkWell(
+                            onTap:()async{
+                              DatabaseHelper db=DatabaseHelper();
+                              User? user = FirebaseAuth.instance.currentUser;
+                              db.deleteTable(user!.uid.toString(), widget.receiverId);
+                              widget.deleteChat();
+                              Navigator.of(context).pop();
+                            },
+                            child: Container(
+                                alignment: Alignment.center,
+                                height:50,
+                                child: Text("Delete Chat",style: TextStyle(color: Color.fromRGBO(223,77,93,1),),)
+                            )
+
+                        ),
+                        Container(
+                            height:0.5,
+                            color:Colors.grey
+                        ),
+                        InkWell(
+                            borderRadius: BorderRadius.only(bottomLeft: Radius.circular(10),bottomRight: Radius.circular(10)),
+                            onTap:(){
+                              Navigator.pop(context);
+                            },
+                            child: Container(
+                                alignment: Alignment.center,
+                                height:50,
+                                child: Text("Cancel",style: TextStyle(color: Color.fromRGBO(1,102,255,1),),)
+                            )
+                        ),
+                      ],
+                    ),
+
+                  );
+                },
+              );
+
             },
           ),
 

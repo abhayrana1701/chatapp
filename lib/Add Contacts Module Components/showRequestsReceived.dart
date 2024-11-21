@@ -107,7 +107,9 @@ class _ShowRequestsReceivedState extends State<ShowRequestsReceived> {
               border: Border(top: BorderSide(color: Colors.grey,width:0.5),left: BorderSide(color: Colors.grey,width:0.5),right: BorderSide(color: Colors.grey,width:0.5)),
               borderRadius: BorderRadius.only(topLeft: Radius.circular(10),topRight: Radius.circular(10)),
             ),
-            //child: receivedRequests.length==0?Text("No requests Received"):ShowContact(),
+            child: receivedRequests.length==0?Text("No requests Received"):ShowContact(searchResults: receivedRequests,contacts: [],isClicked: false,refresh: (){setState(() {
+              loadRequestsReceived();
+            });},requestsReceived: [],requestsSent: [],),
         ),
 
         InkWell(

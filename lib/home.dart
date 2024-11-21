@@ -1,12 +1,25 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:async';
+import 'dart:typed_data';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'Resuable Components/showSnackbar.dart';
 import 'addContacts.dart';
 import 'chatScreen.dart';
 import 'contacts.dart';
 import 'databaseHelper.dart';
 import 'userStatusService.dart';
+import 'signin.dart';
+import 'package:share/share.dart';
+import 'package:lottie/lottie.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -21,6 +34,18 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
 
   FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
   FlutterLocalNotificationsPlugin();
+
+  Map<String, dynamic>? userDetails;
+
+  // Fetch user details from SQLite
+  Future<void> fetchUserDetails() async {
+    DatabaseHelper db = DatabaseHelper();
+    var userData = await db.getUser();
+
+    setState(() {
+      userDetails = userData;
+    });
+  }
 
   int selectedOption=0;
   List<double> widths =[0.0,0.0,0.0,0.0,0.0,0.0];
@@ -37,7 +62,77 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
     var initializationSettings =
     InitializationSettings(android: initializationSettingsAndroid);
     flutterLocalNotificationsPlugin.initialize(initializationSettings);
-    _fetchContactsWithRecentChat();
+    fetchUserDetails();
+    Timer.periodic(Duration(milliseconds: 500), (timer) {
+
+      _fetchContactsWithRecentChat();
+    });
+
+  }
+
+  List options=["My Profile Pic","Add Contacts","Share App","Reset Password","Log Out","Smart Notification"];
+  List<IconData> icons = [
+    CupertinoIcons.person_crop_circle,    // "My Profile"
+    CupertinoIcons.phone,                 // "Contacts"
+    CupertinoIcons.share,                 // "Share App"
+    CupertinoIcons.lock,                  // "Reset Password"
+    CupertinoIcons.square_arrow_right,    // "Log Out"
+    CupertinoIcons.bell
+  ];
+
+  Future<void> uploadProfilePicture(ImageSource source) async {
+    try {
+      // Step 1: Select Image from Gallery or Camera
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: source,imageQuality: 50);
+
+      if (image == null) {
+        print("No image selected");
+        return;
+      }
+
+      // Convert XFile to File
+      File imageFile = File(image.path);
+
+      // Step 2: Get Current User ID
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        print("User is not logged in");
+        return;
+      }
+      String userId = currentUser.uid;
+
+      // Step 3: Upload Image to Firebase Storage
+      String fileName = 'profile_pic_$userId.jpg';
+      Reference storageRef =
+      FirebaseStorage.instance.ref().child('profilePics').child(fileName);
+
+      UploadTask uploadTask = storageRef.putFile(imageFile);
+
+      // Wait for the upload to complete and get the download URL
+      TaskSnapshot snapshot = await uploadTask;
+      String downloadUrl = await snapshot.ref.getDownloadURL();
+
+      // Step 4: Update Firestore with the Profile Picture URL
+      await FirebaseFirestore.instance.collection('userDetails').doc(userId).update({
+        'profilePic': downloadUrl,
+      }).then(
+        (value) async{
+          Uint8List imageBytes = await image.readAsBytes();
+          DatabaseHelper db=DatabaseHelper();
+          await db.updateProfilePic(userId, imageBytes);
+          ShowSnackbar.showSnackbar(context: context, message: "Profile picture updated successfully.", color:  Color.fromRGBO(1,102,255,1),);
+          setState(() {
+            fetchUserDetails();
+          });
+        },
+      );
+
+      print("Profile picture updated successfully.");
+    } catch (e) {
+      ShowSnackbar.showSnackbar(context: context, message: "Error updating prfile picture.", color:  Colors.red,);
+      print("Error uploading profile picture: $e");
+    }
   }
 
 
@@ -91,6 +186,19 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
     super.dispose();
   }
 
+  Future<void>resetPassword()async{
+    Navigator.of(context).pop();
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: userDetails?['email'],
+      );
+      ShowSnackbar.showSnackbar(context: context,color:  Color.fromRGBO(1,102,255,1),message: "Password reset email sent! Check your inbox.");
+    } catch (e) {
+
+      ShowSnackbar.showSnackbar(context: context,color: Colors.red,message:"Failed to send password reset email: $e");
+    }
+  }
 
   Future<List<Map<String, dynamic>>> getContactsWithRecentChat() async {
     final db = await DatabaseHelper();
@@ -108,8 +216,21 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
       User? currentUser = FirebaseAuth.instance.currentUser;
       String currentUserId = currentUser?.uid ?? '';
 
+      var recentChat;
       // Fetch the most recent chat for this contact
-      final recentChat = await db.getRecentChats(currentUserId, contactId);
+      try{
+        final tempRecentChat = await db.getRecentChats(currentUserId, contactId);
+        if (tempRecentChat != null && tempRecentChat.isNotEmpty) {
+          recentChat = tempRecentChat;
+        }else{
+          continue;
+        }
+
+        print("Aaaaaa$tempRecentChat");
+        print("rrrrrrrrrrrrrr $recentChat");
+      }catch(e){
+
+      }
 
       // Make a copy of the contact to allow modification
       Map<String, dynamic> modifiableContact = Map.from(contact);
@@ -141,12 +262,17 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
     return contactsWithRecentChat;
   }
 
+
   Future<void> _fetchContactsWithRecentChat() async {
     contactsWithRecentChat = await getContactsWithRecentChat();
     setState(() {}); // Update the UI after fetching data
   }
 
 
+
+  bool showSearchBox=false;
+  TextEditingController searchController=TextEditingController();
+  final FocusNode _focusNode = FocusNode();
 
   @override
   Widget build(BuildContext context) {
@@ -155,28 +281,102 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
 
       appBar: AppBar(
         backgroundColor: Colors.white,
-        title: Text("Flash"),
+        title: showSearchBox?
+        TextField(
+
+          controller: searchController,
+          cursorColor: Color.fromRGBO(1,102,255,1),
+          keyboardType: TextInputType.emailAddress,
+          focusNode: _focusNode,
+
+          decoration: InputDecoration(
+            fillColor: Color.fromRGBO(243,244,246,1,),
+            filled:true,
+            hintText: "Search...",
+
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10), // Rounded border
+              borderSide: BorderSide(color: Colors.transparent), // No border by default
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10), // Rounded border
+              borderSide: BorderSide(color: Colors.white, width: 2), // Blue border when enabled
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10), // Rounded border
+              borderSide: BorderSide(color:Color.fromRGBO(1,102,255,1), width: 2),
+            ),
+            disabledBorder: InputBorder.none,
+            contentPadding: EdgeInsets.only(left:15,right:10),
+            suffixIcon: InkWell(
+              onTap:(){
+                setState(() {
+                  showSearchBox=false;
+                  FocusScope.of(context).unfocus();
+                });
+              },
+                child: Icon(CupertinoIcons.clear)
+            ),
+          ),
+
+          onChanged: (value){
+
+          },
+
+        )
+        :Text("Flash"),
         automaticallyImplyLeading: false,
         actions: [
-          IconButton(
-              onPressed: (){showNotification();},
+
+          !showSearchBox?IconButton(
+              onPressed: (){
+                setState((){
+                  showSearchBox=true;
+                  _focusNode.requestFocus();
+                });
+              },
               icon: Icon(Icons.search_rounded),
-          ),
-          IconButton(
-            onPressed: (){
-              Navigator.of(context).push(MaterialPageRoute(builder: (context) => AddContacts(),)).then(
-                (value) {
-                  _fetchContactsWithRecentChat();
-                },
-              );
-            },
-            icon: Icon(Icons.person_add),
-          )
+          ):Container(),
+
         ],
       ),
 
       body:Column(
         children: [
+
+          if(contactsWithRecentChat.length==0)...[
+            Lottie.asset(
+              'assets/addContacts.json',
+              width: 300,
+              height: 300,
+              fit: BoxFit.fill,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+              child: Text(
+                "Step into Flash – Where Conversations Ignite Instantly!",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Text(
+                "Connect, Chat, and Spark New Conversations – All in a Flash!",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ),
+
+          ],
 
           Expanded(
             child:ListView.builder(
@@ -219,7 +419,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
 
                 return InkWell(
                   onTap: () {
-                    Navigator.of(context).push(MaterialPageRoute(builder: (context) => ChatScreen(username: contact['username'],about: contact['about'],name:contact['name'],receiverId: (contact['userId'])))).then(
+                    Navigator.of(context).push(MaterialPageRoute(builder: (context) => ChatScreen(translateToKey: contact["translateToKey"],profilePic: contact['profilePic'],username: contact['username'],about: contact['about'],name:contact['name'],receiverId: (contact['userId'])))).then(
                       (value) {
                         _fetchContactsWithRecentChat();
                       },
@@ -233,8 +433,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
                       children: [
                         CircleAvatar(
                           radius: 25,
-                          // Optionally, set the avatar image if available
-                          // backgroundImage: NetworkImage(contact['avatarUrl']), // Example for loading image from URL
+                          backgroundColor:  Color.fromRGBO(243,244,246,1,),
+                          child:contact["profilePic"!]==null?Icon(CupertinoIcons.person,color: Color.fromRGBO(1,102,255,1),):null,
+                          backgroundImage:contact["profilePic"!]!=null ?MemoryImage(contact["profilePic"]):null,
                         ),
                         SizedBox(width: 10),
                         Expanded(
@@ -254,19 +455,46 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(recentMessage),
+                                  if(recentChat['messageType']=="file")...[
+                                    FaIcon(CupertinoIcons.doc,size: 15,),
+                                    Container(width:5),
+                                    Flexible(
+                                      child: Text(jsonDecode(recentMessage)['name'],maxLines: 1, overflow: TextOverflow.ellipsis,),
+                                    ),
+                                    Container(width:10),
+                                  ],
+
+                                  if(recentChat['messageType']=="image")...[
+                                    FaIcon(CupertinoIcons.photo,size: 15,),
+                                    Container(width:5),
+                                    Flexible(
+                                      child: Text(jsonDecode(recentMessage)['name'],maxLines: 1, overflow: TextOverflow.ellipsis,),
+                                    ),
+                                    Container(width:10),
+                                  ],
+
+                                  if(recentChat['messageType']=="text")...[
+                                    Flexible(
+                                      child: Text(recentMessage,maxLines: 1, overflow: TextOverflow.ellipsis,),
+                                    ),
+                                    Container(width:10),
+                                  ],
+
                                   if (recentChat != null) // Only show if there's a recent chat
-                                    Container(
-                                      width: 20,
-                                      height: 20,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: Color.fromRGBO(1, 102, 255, 1),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Text(
-                                        '1', // Replace with the actual unread message count if available
-                                        style: TextStyle(color: Colors.white),
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Container(
+                                        width: 20,
+                                        height: 20,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: Color.fromRGBO(1, 102, 255, 1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Text(
+                                          '1', // Replace with the actual unread message count if available
+                                          style: TextStyle(color: Colors.white),
+                                        ),
                                       ),
                                     ),
                                 ],
@@ -315,23 +543,222 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
                 children: [
                   SizedBox(height:50),
                   CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.transparent,
-                    //child: ClipOval(child: Image(image: AssetImage("assets/profile.jpg"),)),
+                    radius: 32,
+                    backgroundColor:Color.fromRGBO(243,244,246,1,),
+                    child:CircleAvatar(
+                      radius: 30,
+                      backgroundColor: Colors.white,
+                      backgroundImage: userDetails?['profilePic']!=null?MemoryImage(userDetails?['profilePic']):null,
+                      //child: ClipOval(child: Image(image: AssetImage("assets/profile.jpg"),)),
+                    ),
                   ),
                   SizedBox(height:5),
-                  Text("Abhay Rana",style: TextStyle(color:Colors.white),),
+                  Text(userDetails!['name'],style: TextStyle(color:Colors.black),),
+                  Text("@${userDetails!['username']}",style: TextStyle(color:Colors.black),),
                   Expanded(
                     child: ListView.builder(
-                      itemCount: 6,
+                      itemCount: options.length,
                       itemBuilder: (context, index) {
                         return GestureDetector(
                           onTap: (){
-                            setState(() {
-                              widths[oldIndex]=0;
-                              widths[index]=MediaQuery.of(context).size.width ;
-                            });
-                            oldIndex=index;
+                            switch(index){
+                              case 0:
+                                showModalBottomSheet(
+                                  context: context,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                                  ),
+                                  backgroundColor: Colors.white,
+                                  isScrollControlled: true, // Set to true if you want the bottom sheet to expand fully
+                                  builder: (context) {
+                                    return Padding(
+                                      padding: EdgeInsets.all(16.0),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min, // Adjusts the height based on content
+                                        children: [
+                                          Text(
+                                            'Profile Photo',
+                                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                          ),
+                                          SizedBox(height: 10),
+                                          Text('Your profile, your style — upload a picture'),
+                                          SizedBox(height: 20),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                            children: [
+                                              InkWell(
+                                                onTap:(){
+                                                  uploadProfilePicture(ImageSource.gallery);
+                                                  Navigator.of(context).pop();
+                                                },
+                                                child: CircleAvatar(
+                                                  backgroundColor:Color.fromRGBO(248,101,50,1),
+                                                  child:FaIcon(FontAwesomeIcons.image,color:Colors.white),
+                                                ),
+                                              ),
+                                              InkWell(
+                                                onTap:(){
+                                                  uploadProfilePicture(ImageSource.camera);
+                                                  Navigator.of(context).pop();
+                                                },
+                                                child: CircleAvatar(
+                                                  backgroundColor:Color.fromRGBO(200,97,249,1),
+                                                  child:FaIcon(FontAwesomeIcons.camera,color:Colors.white),
+                                                ),
+                                              )
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                );
+
+
+
+                              case 1:
+                                Navigator.of(context).push(MaterialPageRoute(builder: (context) => AddContacts(),)).then(
+                                      (value) {
+                                    _fetchContactsWithRecentChat();
+                                  },
+                                );
+
+
+
+                              case 2:
+                              // Sharing the app link
+                                Share.share('Check out this awesome chat app, Flash!\nhttps://www.flash.com');
+
+
+
+                              case 3:
+                                Navigator.of(context).pop();
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (BuildContext context) {
+                                    return AlertDialog(
+                                      title: Align(alignment:Alignment.center,child: Text('Reset Password')),
+                                      backgroundColor: Color.fromRGBO(243,244,246,1,),
+                                      contentPadding: EdgeInsets.only(top:15),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10), // Set the border radius here
+                                      ),
+                                      content: Column(
+                                        // crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: <Widget>[
+                                          Text('Do you want to reset password?'),
+                                          SizedBox(height: 15,),
+                                          Container(
+                                              height:0.5,
+                                              color:Colors.grey
+                                          ),
+                                          InkWell(
+                                              onTap:(){
+                                                resetPassword();
+                                              },
+                                              child: Container(
+                                                  alignment: Alignment.center,
+                                                  height:50,
+                                                  child: Text("Reset Password",style: TextStyle(color: Color.fromRGBO(223,77,93,1),),)
+                                              )
+
+                                          ),
+                                          Container(
+                                              height:0.5,
+                                              color:Colors.grey
+                                          ),
+                                          InkWell(
+                                              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(10),bottomRight: Radius.circular(10)),
+                                              onTap:(){
+                                                Navigator.pop(context);
+                                              },
+                                              child: Container(
+                                                  alignment: Alignment.center,
+                                                  height:50,
+                                                  child: Text("Cancel",style: TextStyle(color: Color.fromRGBO(1,102,255,1),),)
+                                              )
+                                          ),
+                                        ],
+                                      ),
+
+                                    );
+                                  },
+                                );
+
+
+
+
+
+                              case 4:
+                                Navigator.of(context).pop();
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (BuildContext context) {
+                                    return AlertDialog(
+                                      title: Align(alignment:Alignment.center,child: Text('Log Out')),
+                                      backgroundColor: Color.fromRGBO(243,244,246,1,),
+                                      contentPadding: EdgeInsets.only(top:15),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10), // Set the border radius here
+                                      ),
+                                      content: Column(
+                                        // crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: <Widget>[
+                                          Text('Are you sure you want to log out?'),
+                                          SizedBox(height: 15,),
+                                          Container(
+                                              height:0.5,
+                                              color:Colors.grey
+                                          ),
+                                          InkWell(
+                                              onTap:()async{
+                                                try {
+                                                  await FirebaseAuth.instance.signOut();
+                                                  Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => Signin(),)); // Navigate to the login screen or home screen
+                                                } catch (e) {
+                                                  // Handle errors here
+                                                  print('Error logging out: $e');
+                                                  // ScaffoldMessenger.of(context).showSnackBar(
+                                                  //   SnackBar(content: Text('Error logging out. Please try again.')),
+                                                  // );
+                                                }
+                                              },
+                                              child: Container(
+                                                  alignment: Alignment.center,
+                                                  height:50,
+                                                  child: Text("Log Out",style: TextStyle(color: Color.fromRGBO(223,77,93,1),),)
+                                              )
+
+                                          ),
+                                          Container(
+                                              height:0.5,
+                                              color:Colors.grey
+                                          ),
+                                          InkWell(
+                                            borderRadius: BorderRadius.only(bottomLeft: Radius.circular(10),bottomRight: Radius.circular(10)),
+                                              onTap:(){
+                                                Navigator.pop(context);
+                                              },
+                                              child: Container(
+                                                  alignment: Alignment.center,
+                                                  height:50,
+                                                  child: Text("Cancel",style: TextStyle(color: Color.fromRGBO(1,102,255,1),),)
+                                              )
+                                          ),
+                                        ],
+                                      ),
+
+                                    );
+                                  },
+                                );
+
+                              default:
+                                break;
+                            }
                           },
                           child: Padding(
                             padding: const EdgeInsets.only(top:0,bottom: 8),
@@ -349,7 +776,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
                                   children: [
                                     AnimatedContainer(
                                       duration: Duration(milliseconds: 500),
-                                      width:widths[index]==-1?MediaQuery.of(context).size.width:widths[index],
+                                      width:0,
                                       height:45,
                                       decoration: BoxDecoration(
                                           color:Color.fromRGBO(1,102,255,1),
@@ -360,9 +787,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         SizedBox(width:10),
-                                        //Icon(icons[index],color: Colors.white,),
+                                        Icon(icons[index],color:Colors.black,),
                                         SizedBox(width:10),
-                                        //Text(options[index],style: TextStyle(color:Colors.white),),
+                                        Text(options[index],style: TextStyle(color:Colors.black),),
                                       ],
                                     )
                                   ],

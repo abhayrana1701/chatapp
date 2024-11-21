@@ -23,8 +23,9 @@ class ShowChats extends StatefulWidget {
   List<Map<String, dynamic>> chatsList;
   ScrollController scrollController;
   String receiverId;
+  String translateToKey;
   // Attach the key here
-  ShowChats({Key? key, required this.chatsList, required this.scrollController, required this.receiverId})
+  ShowChats({Key? key, required this.translateToKey,required this.chatsList, required this.scrollController, required this.receiverId})
       : super(key: key); // Pass the key to the superclass constructor
 
 
@@ -419,9 +420,11 @@ class ShowChatsState extends State<ShowChats> {
                       children: [
                         Text(formattedTime,style: TextStyle(color: Colors.grey,fontSize: 12),),
                         SizedBox(width:2),
+                        if(chat['translatedTo']==widget.translateToKey)
+                          Text("A文",style: TextStyle(color: Color.fromRGBO(1,102,255,1),fontSize: 12,),),
+                        SizedBox(width:2),
                         chat['senderId']==currentUserId?Stack(
                           children: [
-
 
                             if (chat['isRead']==1)...[
                               Container(height:14,width:21),
@@ -429,7 +432,8 @@ class ShowChatsState extends State<ShowChats> {
                                 top:0,bottom:0,
                                 child: CircleAvatar(
                                   radius: 6,
-                                  backgroundColor: Color.fromRGBO(1,102,255,1),
+                                  backgroundColor: Color.fromRGBO(1,102
+                                      ,255,1),
                                   child: IconTheme(
                                     data: IconThemeData(size: 10,color: Colors.white),
                                     child: Icon(Icons.check, size: 10),
