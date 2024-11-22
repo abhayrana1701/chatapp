@@ -63,6 +63,9 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
     _scrollController.addListener(_onScroll);
     //receiveMessages();
 
+    callFunctionAfterDelay();
+
+
     // Listen for changes in the ValueNotifier (FCM data)
     fcmDataNotifier.addListener(() {
       print("yeahhhh");
@@ -80,6 +83,7 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
         print("finally");
         chatsList.add(message);
       });
+
     });
 
     fcmUpdateReceivedStatusNotifier.addListener(() {
@@ -110,6 +114,15 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
     });
 
   }
+
+  Future<void> callFunctionAfterDelay() async {
+    // Delay of 3 seconds
+    await Future.delayed(Duration(seconds: 2));
+
+    // Call the getRecentChats function after the delay
+    generateChatRecommendations();
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -402,7 +415,19 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.name,style: TextStyle(fontWeight: FontWeight.w400,fontSize: 18),),
+                GestureDetector(
+                    onTap:(){
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => ViewProfile(profilePic: widget.profilePic,userid: widget.receiverId,username: widget.username,about: widget.about,name: widget.name,),
+                        ),
+                      ).then((value) {
+                        widget.about=value;
+                      },);
+
+                    },
+                    child: Text(widget.name,style: TextStyle(fontWeight: FontWeight.w400,fontSize: 18),)
+                ),
                 //LastScene(receiverId: widget.receiverId)
               ],
             )
@@ -428,6 +453,10 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
 
             },deleteChat: (){
               loadChats();
+            },update: (){
+            setState(() {
+
+            });
             },
           )
         ],
@@ -439,12 +468,9 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
         child: Stack(
           children: [
 
-
-
-            Column(
-              children: [
-
-                if(chatsList.length==1 )...[
+            if(chatsList.length==1 )...[
+              Column(
+                children: [
                   Container(
                     width:MediaQuery.of(context).size.width*0.7,
                     height:MediaQuery.of(context).size.width*0.7,
@@ -485,8 +511,15 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
                     ),
                   ),
 
-
                 ],
+              )
+
+            ],
+
+            Column(
+              children: [
+
+
 
                 Expanded(child:ShowChats(translateToKey: widget.translateToKey,chatsList: chatsList,scrollController: _scrollController,receiverId: widget.receiverId,)),
 

@@ -14,7 +14,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'showChats.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home.dart';
-
+import 'package:http/http.dart' as http;
 
 
 
@@ -105,7 +105,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
           User? user = FirebaseAuth.instance.currentUser;
           final translator = GoogleTranslator();
           var translation = await translator.translate("${message.data['content']}", to: settings?["translateToKey"], from: settings?["translateFromKey"]);
-          db.updateMessageContent(user!.uid, message.data['senderId'],message.data['messageId'], translation.text);
+          db.updateMessageContent(user!.uid, message.data['senderId'],message.data['messageId'], translation.text,settings?["translateToKey"]);
           print("Message translated");
         }
         print('Message saved to SQLite');
@@ -202,20 +202,35 @@ void main() async {
     if (fcmType == 'chat') {
       print("Received foreground message: ${message.data}");
 
-      if (message.data.isNotEmpty) {
-        // fcmDataNotifier.value = message.data;
-        await saveMessageToSQLite(message.data);
-        print('Message saved to SQLite');
-        DatabaseHelper db=DatabaseHelper();
-        final settings = await db.getLanguageTranslationSettings(message.data['senderId']);
-        if(settings?['isLanguageTranslationEnabled']==1){
-          print("yes");
-          User? user = FirebaseAuth.instance.currentUser;
-          final translator = GoogleTranslator();
-          var translation = await translator.translate("${message.data['content']}", to: settings?["translateToKey"], from: settings?["translateFromKey"]);
-          db.updateMessageContent(user!.uid, message.data['senderId'],message.data['messageId'], translation.text);
-          print("Message translated");
+      if(message.data['messageType']=="file"){
+        print("file received");
+        String senderId=message.data['senderId'];
+        String receiverId=message.data['receiverId'];
+        String messageId = message.data['messageId'];
+        String fileUrl=message.data['fileUrl'];
+        String fileName=message.data['content'];
+        String fileType=message.data['extension'];
+        int size = int.parse(message.data['size'].toString());
+        storeReceivedFile(size: size,senderId: senderId, receiverId: receiverId, messageId: messageId, fileUrl: fileUrl, fileName: fileName, fileType: fileType);
+
+      }
+      else  {
+        if((message.data.isNotEmpty)){
+          // fcmDataNotifier.value = message.data;
+          await saveMessageToSQLite(message.data);
+          print('Message saved to SQLite');
+          DatabaseHelper db=DatabaseHelper();
+          final settings = await db.getLanguageTranslationSettings(message.data['senderId']);
+          if(settings?['isLanguageTranslationEnabled']==1){
+            print("yes");
+            User? user = FirebaseAuth.instance.currentUser;
+            final translator = GoogleTranslator();
+            var translation = await translator.translate("${message.data['content']}", to: settings?["translateToKey"], from: settings?["translateFromKey"]);
+            db.updateMessageContent(user!.uid, message.data['senderId'],message.data['messageId'], translation.text,settings?["translateToKey"]);
+            print("Message translated");
+          }
         }
+
       }
 
       if (message.notification != null) {
@@ -223,12 +238,57 @@ void main() async {
         print('Notification Body: ${message.notification!.body}');
       }
 
-      await showNotification(message);
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      String currentUserId = currentUser?.uid ?? '';
+      DatabaseHelper db=DatabaseHelper();
+      Map<String, String?> settings = await db.getUserNotificationSettings(currentUserId);
+      if(settings['isSmartPingEnabled']=="yes"){
+        final String apiKey = 'AIzaSyAh_L-SnXqAHCk8POf02nxQN_37Y4Gqxwo'; // Replace with your actual API key
+        final String url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=$apiKey';
+
+        final response = await http.post(
+          Uri.parse(url),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'contents': [
+              {
+                'parts': [
+                  {'text': "The user wants to receive notification only for: ${settings['onlyNotifiedFor']}. The message is ${message.data['content']}. If user should receive notification then give 5 starts ***** in response, if user should not receive notification then give 5 @@@@@ in response."},
+                ],
+              },
+            ],
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          print(response.body);
+          // Parse the JSON
+          Map<String, dynamic> data = jsonDecode(response.body);
+
+          // Extract the text content
+          String text = data['candidates'][0]['content']['parts'][0]['text'];
+          if (text.contains('*****')) {
+            print("The text contains five continuous stars!");
+            await showNotification(message);
+          }
+
+
+        } else {
+
+          print("Error");
+        }
+      }else{
+        await showNotification(message);
+      }
     } else if(fcmType=="update_received_status"){
       updateReceivedStatusInDb(message);
     }
     else if(fcmType=="deleteMessage"){
+      print("unsend");
       deleteMessageInDb(message);
+      print("\n\n\nMessageDeleted\n\n\n");
     }
   });
 

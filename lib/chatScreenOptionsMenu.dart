@@ -12,8 +12,9 @@ class ChatScreenOptionsMenu extends StatefulWidget {
   Function translateLanguage;
   String receiverId;
   Function deleteChat;
+  Function update;
   Function(String liveChat) updateLiveChat;
-  ChatScreenOptionsMenu({super.key,required this.deleteChat,required this.translateLanguage,required this.receiverId,required this.updateLiveChat});
+  ChatScreenOptionsMenu({super.key,required this.update,required this.deleteChat,required this.translateLanguage,required this.receiverId,required this.updateLiveChat});
 
   @override
   State<ChatScreenOptionsMenu> createState() => _ChatScreenOptionsMenuState();
@@ -123,6 +124,7 @@ class _ChatScreenOptionsMenuState extends State<ChatScreenOptionsMenu> {
                                                 setState((){
                                                   fromKey=value[0];
                                                   from=value[1];
+                                                  widget.update();
                                                 });
                                               },);
                                             },
@@ -158,6 +160,7 @@ class _ChatScreenOptionsMenuState extends State<ChatScreenOptionsMenu> {
                                                 setState((){
                                                   toKey=value[0];
                                                   to=value[1];
+                                                  widget.update();
                                                 });
                                               },);
                                             },

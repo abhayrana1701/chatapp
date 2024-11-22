@@ -15,7 +15,7 @@ class DatabaseHelper {
 
   // Initialize the database for a specific user
   Future<Database> initDatabase(String userId) async {
-    _database = await _initUserDatabase(userId+"aaaahlaak");
+    _database = await _initUserDatabase(userId+"aaalahklaak");
     return _database!;
   }
 
@@ -62,11 +62,56 @@ class DatabaseHelper {
       userId TEXT NOT NULL,
       name TEXT NOT NULL,
       email TEXT NOT NULL,
-      profilePic BLOB
+      profilePic BLOB,
+      onlyNotifiedFor TEXT DEFAULT '',
+      isSmartPingEnabled TEXT DEFAULT 'no'
     )
-    ''');
-
+''');
   }
+
+
+  Future<void> updateNotifiedFor(String userId,String onlyNotifiedFor) async {
+    final db = await database;
+    await db.update(
+      'user_data',
+      {'onlyNotifiedFor': onlyNotifiedFor}, // the new value to set
+      where: 'userId = ?', // filter condition
+      whereArgs: [userId], // the userId to match
+    );
+  }
+
+  Future<void> updateSmartPingEnabled(String userId, String isSmartPingEnabled) async {
+    final db = await database;
+    await db.update(
+      'user_data',
+      {'isSmartPingEnabled': isSmartPingEnabled}, // the new value to set
+      where: 'userId = ?', // filter condition
+      whereArgs: [userId], // the userId to match
+    );
+  }
+
+  // Function to get onlyNotifiedFor and isSmartPingEnabled fields
+  Future<Map<String, String?>> getUserNotificationSettings(String userId) async {
+    final db = await database;
+    List<Map<String, dynamic>> result = await db.query(
+      'user_data',
+      columns: ['onlyNotifiedFor', 'isSmartPingEnabled'],  // Select only the fields we need
+      where: 'userId = ?',  // Filter condition
+      whereArgs: [userId],  // The userId to match
+    );
+
+    if (result.isNotEmpty) {
+      return {
+        'onlyNotifiedFor': result[0]['onlyNotifiedFor'],
+        'isSmartPingEnabled': result[0]['isSmartPingEnabled'],
+      };
+    } else {
+      return {'onlyNotifiedFor': null, 'isSmartPingEnabled': null};  // Return null if no data found
+    }
+  }
+
+
+
 
 
   Future<Map<String, dynamic>?> getLanguageTranslationSettings(String userId) async {
@@ -184,14 +229,31 @@ class DatabaseHelper {
     return await db.query('contacts');
   }
 
-  Future<List<Map<String, dynamic>>> getRecentChats(String currentUserId,String userId2) async {
+
+
+  Future<List<Map<String, dynamic>>> getRecentChats(String currentUserId, String userId2) async {
     final db = await database;
-    return await db.query(
-      'chat_${currentUserId}_$userId2',
-      orderBy: 'timestamp DESC', // Assuming 'timestamp' stores the chat time
-      limit: 1, // Get only the most recent chat
+
+    // Check if the table exists
+    final tableExists = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='chat_${currentUserId}_$userId2'"
     );
+
+    // If the table does not exist, return an empty list
+    if (tableExists.isEmpty) {
+      return [];
+    }
+
+    // Fetch the last inserted chat using ROWID
+    final result = await db.rawQuery(
+        "SELECT * FROM chat_${currentUserId}_$userId2 WHERE ROWID = (SELECT MAX(ROWID) FROM chat_${currentUserId}_$userId2)"
+    );
+
+    // Return the result (either the last chat or an empty list if no chats exist)
+    return result.isNotEmpty ? result : [];
   }
+
+
 
   ///////////////////////////////////
 
@@ -210,7 +272,7 @@ class DatabaseHelper {
       content TEXT,
       timestamp TEXT,
       messageType TEXT,
-      translatedTo TEXT DEFAULT 'none',
+      translatedToKey TEXT DEFAULT 'none',
       isRead INTEGER DEFAULT 0,        
       isDelivered INTEGER DEFAULT 0, 
       isReceived INTEGER DEFAULT 0
@@ -220,17 +282,25 @@ class DatabaseHelper {
   }
 
   Future<void> updateMessageContent(
-      String userId1, String userId2, String messageId, String newContent) async {
+      String userId1,
+      String userId2,
+      String messageId,
+      String newContent,
+      String translatedToKey,
+      ) async {
     Database db = await database;
     String tableName = 'chat_${userId1}_${userId2}';
 
     try {
-      // Perform the update query
+      // Perform the update query with both fields
       int count = await db.update(
         tableName,
-        {'content': newContent}, // New value for the `content` field
-        where: 'messageId = ?',  // Condition for the update
-        whereArgs: [messageId],  // Arguments to prevent SQL injection
+        {
+          'content': newContent,       // New value for the `content` field
+          'translatedToKey': translatedToKey // New value for the `translatedTo` field
+        },
+        where: 'messageId = ?',        // Condition for the update
+        whereArgs: [messageId],        // Arguments to prevent SQL injection
       );
 
       if (count > 0) {

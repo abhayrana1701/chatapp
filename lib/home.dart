@@ -9,6 +9,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:glowy_borders/glowy_borders.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'Resuable Components/showSnackbar.dart';
@@ -51,6 +52,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
   List<double> widths =[0.0,0.0,0.0,0.0,0.0,0.0];
   int oldIndex=0;
   List<Map<String, dynamic>> contactsWithRecentChat = [];
+  List<Map<String, dynamic>> contactsImageWithRecentChat = [];
   @override
   void initState() {
     // TODO: implement initState
@@ -63,10 +65,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
     InitializationSettings(android: initializationSettingsAndroid);
     flutterLocalNotificationsPlugin.initialize(initializationSettings);
     fetchUserDetails();
-    Timer.periodic(Duration(milliseconds: 500), (timer) {
+    //Timer.periodic(Duration(milliseconds: 500), (timer) {
 
       _fetchContactsWithRecentChat();
-    });
+   // });
 
   }
 
@@ -226,8 +228,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
           continue;
         }
 
-        print("Aaaaaa$tempRecentChat");
-        print("rrrrrrrrrrrrrr $recentChat");
+        // print("Aaaaaa$tempRecentChat");
+        // print("rrrrrrrrrrrrrr $recentChat");
       }catch(e){
 
       }
@@ -235,14 +237,18 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
       // Make a copy of the contact to allow modification
       Map<String, dynamic> modifiableContact = Map.from(contact);
 
+      try{
+        modifiableContact['recentChat'] = recentChat.isNotEmpty ? recentChat.first : null;
+      }catch(e){}
       // Only take the first element if recentChat is not empty
-      modifiableContact['recentChat'] = recentChat.isNotEmpty ? recentChat.first : null;
+
 
       // Add the contact with recent chat to the list
       contactsWithRecentChat.add(modifiableContact);
     }
 
     // Step 4: Sort the contacts based on the timestamp of the most recent chat
+
     contactsWithRecentChat.sort((a, b) {
       final aTimestamp = a['recentChat']?['timestamp'];
       final bTimestamp = b['recentChat']?['timestamp'];
@@ -254,17 +260,21 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
       // Parse timestamps to DateTime for comparison
       final aDate = DateTime.parse(aTimestamp);
       final bDate = DateTime.parse(bTimestamp);
-
+print(aDate);
+print(bDate);
       return bDate.compareTo(aDate); // Sort in descending order (most recent first)
     });
 
-    print("Sorted Contacts with Recent Chat: $contactsWithRecentChat");
     return contactsWithRecentChat;
   }
 
 
   Future<void> _fetchContactsWithRecentChat() async {
+    int oldLen= contactsWithRecentChat.length;
     contactsWithRecentChat = await getContactsWithRecentChat();
+    if(contactsWithRecentChat.length!=oldLen){
+      contactsImageWithRecentChat=contactsWithRecentChat;
+    }
     setState(() {}); // Update the UI after fetching data
   }
 
@@ -383,6 +393,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
               itemCount: contactsWithRecentChat.length,
               itemBuilder: (context, index) {
                 final contact = contactsWithRecentChat[index];
+                final image=contactsImageWithRecentChat[index];
 
                 // Assuming recentChat is a Map with keys 'message' and 'timestamp'
                 final recentChat = contact['recentChat'];
@@ -434,8 +445,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
                         CircleAvatar(
                           radius: 25,
                           backgroundColor:  Color.fromRGBO(243,244,246,1,),
-                          child:contact["profilePic"!]==null?Icon(CupertinoIcons.person,color: Color.fromRGBO(1,102,255,1),):null,
-                          backgroundImage:contact["profilePic"!]!=null ?MemoryImage(contact["profilePic"]):null,
+                          child:image["profilePic"!]==null?Icon(CupertinoIcons.person,color: Color.fromRGBO(1,102,255,1),):null,
+                          backgroundImage:image["profilePic"!]!=null ?MemoryImage(image["profilePic"]):null,
                         ),
                         SizedBox(width: 10),
                         Expanded(
@@ -453,7 +464,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
                                 ],
                               ),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                // mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   if(recentChat['messageType']=="file")...[
                                     FaIcon(CupertinoIcons.doc,size: 15,),
@@ -479,29 +490,28 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
                                     ),
                                     Container(width:10),
                                   ],
-
                                   if (recentChat != null) // Only show if there's a recent chat
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Container(
-                                        width: 20,
-                                        height: 20,
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          color: Color.fromRGBO(1, 102, 255, 1),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Text(
-                                          '1', // Replace with the actual unread message count if available
-                                          style: TextStyle(color: Colors.white),
-                                        ),
+                                    Container(
+                                      width: 20,
+                                      height: 20,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: Color.fromRGBO(1, 102, 255, 1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Text(
+                                        '1', // Replace with the actual unread message count if available
+                                        style: TextStyle(color: Colors.white),
                                       ),
                                     ),
+
                                 ],
                               ),
+
                             ],
                           ),
                         ),
+
                       ],
                     ),
                   ),
@@ -560,7 +570,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
                       itemCount: options.length,
                       itemBuilder: (context, index) {
                         return GestureDetector(
-                          onTap: (){
+                          onTap: () async {
                             switch(index){
                               case 0:
                                 showModalBottomSheet(
@@ -755,6 +765,156 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
                                     );
                                   },
                                 );
+                              case 5:
+                                TextEditingController controller=TextEditingController();
+                                DatabaseHelper db=DatabaseHelper();
+                                User? currentUser = FirebaseAuth.instance.currentUser;
+                                String currentUserId = currentUser?.uid ?? '';
+                                Map<String, String?> settings = await db.getUserNotificationSettings(currentUserId);
+                                bool isSmartPingEnabled=settings['isSmartPingEnabled']=="yes"?true:false;
+                                controller.text=settings['onlyNotifiedFor']!;
+                                showDialog(
+                                  context: context,
+                                  builder: (context) {
+                                    return StatefulBuilder(
+                                      builder: (BuildContext context, StateSetter setState) {
+                                        return Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          children: [
+                                            AnimatedGradientBorder(
+                                              borderSize: 2,
+                                              glowSize: 0,
+                                              gradientColors: [
+                                                Color(0xFFF953C6), // Dark Pink
+                                                Color(0xFF833AB4), // Purple
+                                                Color(0xFFE94057), // Pink-Red
+                                                Color(0xFFFF6F61)  // Coral
+                                              ],
+                                              borderRadius: BorderRadius.all(Radius.circular(10)),
+                                              child: Container(
+                                                width: MediaQuery.of(context).size.width * 0.7,
+                                                height: 250,
+                                                decoration: BoxDecoration(
+                                                  color: Color.fromRGBO(243, 244, 246, 1),
+                                                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                                                ),
+                                                child: Padding(
+                                                  padding: const EdgeInsets.all(8.0),
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: Container(
+                                                              decoration: BoxDecoration(
+                                                                color: Colors.white,
+                                                                borderRadius: BorderRadius.all(Radius.circular(10)),
+                                                              ),
+                                                              child: Padding(
+                                                                padding: const EdgeInsets.all(8.0),
+                                                                child: Row(
+                                                                  mainAxisSize: MainAxisSize.max,
+                                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                                  children: [
+                                                                    Text(
+                                                                      "Smart Ping",
+                                                                      style: TextStyle(fontSize: 25),
+                                                                    ),
+                                                                    CupertinoSwitch(
+                                                                      value: isSmartPingEnabled,
+                                                                      onChanged: (bool value) {
+                                                                        setState((){
+                                                                          setState((){
+                                                                            isSmartPingEnabled=!isSmartPingEnabled;
+                                                                          });
+                                                                          db.updateSmartPingEnabled(currentUserId,isSmartPingEnabled?"yes":"no");
+                                                                        });
+                                                                      },
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      GestureDetector(
+                                                        onTap:(){
+
+                                                        },
+                                                        child: Container(
+                                                          decoration: BoxDecoration(
+                                                            color: Colors.white,
+                                                            borderRadius: BorderRadius.all(Radius.circular(10)),
+                                                          ),
+                                                          child: Padding(
+                                                            padding: const EdgeInsets.all(8.0),
+                                                            child: Column(
+                                                              children: [
+                                                                Row(
+                                                                  children: [
+                                                                    Expanded(
+                                                                      child: Text(
+                                                                        "Only Get Notified For: ",
+                                                                        overflow: TextOverflow.ellipsis,
+                                                                      ),
+                                                                    ),
+                                                                    Icon(CupertinoIcons.pencil),
+                                                                  ],
+                                                                ),
+                                                                Container(
+                                                                  child: Material(
+                                                                    child: TextField(
+                                                                      controller: controller,
+                                                                      cursorColor: Colors.black,
+                                                                      decoration: InputDecoration(
+                                                                        border: InputBorder.none,
+                                                                        fillColor: Colors.white,
+                                                                        filled: true,
+                                                                        contentPadding: EdgeInsets.only(right:4,left:4)
+                                                                      ),
+                                                                      onChanged: (value){
+                                                                        db.updateNotifiedFor(currentUserId, value);
+                                                                      },
+                                                                    ),
+                                                                  ),
+                                                                )
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+
+                                                      Container(
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.white,
+                                                          borderRadius: BorderRadius.all(Radius.circular(10)),
+                                                        ),
+                                                        child: Padding(
+                                                          padding: const EdgeInsets.all(8.0),
+                                                          child: Text(
+                                                            "Only the essentials, when you need them—smart notifications that prioritize what matters.",
+                                                          ),
+                                                        ),
+                                                      ),
+
+
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                );
+
+
 
                               default:
                                 break;

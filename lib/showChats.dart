@@ -6,6 +6,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:mychatapplication/fileUploadService.dart';
 import 'package:mychatapplication/sendMessages.dart';
 import 'package:open_file/open_file.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -15,7 +16,7 @@ import 'package:intl/intl.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
-
+import 'fileUploadService.dart';
 import 'databaseHelper.dart';
 import 'imageViewerScreen.dart';
 
@@ -39,8 +40,11 @@ class ShowChatsState extends State<ShowChats> {
     print("Updated");
   }
   CancelableOperation? _cancelableOperation;
-
-
+  dynamic settingsinfo;
+  Future<void> getdata()async{
+    DatabaseHelper db=DatabaseHelper();
+    settingsinfo= await db.getLanguageTranslationSettings(widget.receiverId);
+  }
   String extractFileName(String fileUrl) {
     // Decode URL to handle encoded characters like %2F, %20, etc.
     final decodedUrl = Uri.decodeFull(fileUrl);
@@ -142,7 +146,7 @@ class ShowChatsState extends State<ShowChats> {
     CollectionReference messages = FirebaseFirestore.instance.collection('deleteMessage');
 
     await messages.add({
-      'userId': data['senderId'],
+      'userId': widget.receiverId,
       'receiverId': currentUserId,
       'messageId': data['messageId'],
     }).then(
@@ -159,9 +163,10 @@ class ShowChatsState extends State<ShowChats> {
     );
   }
 
-  void _showPopupMenu(BuildContext context, Offset position, String item,String messageId,Map<String, dynamic> chat,Duration difference) {
+  void _showPopupMenu(String senderId,BuildContext context, Offset position, String item,String messageId,Map<String, dynamic> chat,Duration difference) {
     final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-
+    User? currentUser = FirebaseAuth.instance.currentUser;
+    String currentUserId = currentUser?.uid ?? '';
     showMenu(
       context: context,
       color:Colors.white,
@@ -205,7 +210,7 @@ class ShowChatsState extends State<ShowChats> {
             ],
           ),
         ),
-        if (difference.inHours <12)
+        if (difference.inHours <12 && currentUserId==senderId)
         PopupMenuItem<String>(
           value: 'unsend',
           child: Row(
@@ -310,11 +315,11 @@ class ShowChatsState extends State<ShowChats> {
                 // Access the 'livechat' field
                 String liveChat = snapshot.data!['liveChat'] ?? '';
                 if(liveChat!=''){
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (widget.scrollController.hasClients) {
-                      widget.scrollController.jumpTo(widget.scrollController.position.maxScrollExtent);
-                    }
-                  });
+                  // WidgetsBinding.instance.addPostFrameCallback((_) {
+                  //   if (widget.scrollController.hasClients) {
+                     widget.scrollController.jumpTo(widget.scrollController.position.maxScrollExtent);
+                  //   }
+                  // });
                   return Align(
                     alignment: Alignment.centerLeft,
                     child: Column(
@@ -355,6 +360,7 @@ class ShowChatsState extends State<ShowChats> {
             return Container();
           }
 
+
           switch(chat['messageType']){
 
             case 'text':
@@ -386,7 +392,8 @@ class ShowChatsState extends State<ShowChats> {
                       childWhenDragging: Container(),
                       child: GestureDetector(
                         onTap: (){
-                          print("SSSSSSSSSSSSSSSS${chat['timestamp']}");
+print(chat['timestamp']);
+
                         },
                         onLongPressStart: (LongPressStartDetails details) {
                           final DateTime now = DateTime.now();
@@ -394,7 +401,7 @@ class ShowChatsState extends State<ShowChats> {
                           final DateTime messageTime = DateTime.parse(chat['timestamp']);
                           // Calculate the difference in hours
                           final Duration difference = now.difference(messageTime);
-                          _showPopupMenu(context, details.globalPosition, 'item[index]',chat['messageId'],chat,difference);
+                          _showPopupMenu(chat['senderId'],context, details.globalPosition, 'item[index]',chat['messageId'],chat,difference);
                         },
                         child: Container(
                           constraints: BoxConstraints(
@@ -420,8 +427,16 @@ class ShowChatsState extends State<ShowChats> {
                       children: [
                         Text(formattedTime,style: TextStyle(color: Colors.grey,fontSize: 12),),
                         SizedBox(width:2),
-                        if(chat['translatedTo']==widget.translateToKey)
-                          Text("A文",style: TextStyle(color: Color.fromRGBO(1,102,255,1),fontSize: 12,),),
+                        FutureBuilder(
+                          future: getdata(),  // Fetch the language settings asynchronously
+                          builder: (context, snapshot) {
+                            if (settingsinfo?["translateToKey"]==chat['translatedToKey']) {
+                              return Text("A文",style: TextStyle(color:Colors.grey,fontSize: 12,));  // Show a loading indicator while waiting for data
+                            }
+                            return Container();
+                          },
+                        ),
+
                         SizedBox(width:2),
                         chat['senderId']==currentUserId?Stack(
                           children: [
@@ -538,7 +553,7 @@ class ShowChatsState extends State<ShowChats> {
                             final DateTime messageTime = DateTime.parse(chat['timestamp']);
                             // Calculate the difference in hours
                             final Duration difference = now.difference(messageTime);
-                            _showPopupMenu(context, details.globalPosition, 'item[index]',chat['messageId'],chat,difference);
+                            _showPopupMenu(chat['senderId'],context, details.globalPosition, 'item[index]',chat['messageId'],chat,difference);
                           },
                           child: Container(
                             width:MediaQuery.of(context).size.width*0.7,
@@ -582,7 +597,38 @@ class ShowChatsState extends State<ShowChats> {
                                     ),
                                   ),
                                   SizedBox(width:1),
-                                  chat['isDelivered']==-1?SizedBox(height:20,width:20,child: CircularProgressIndicator(strokeWidth: 2,color:Colors.white)):Container(),
+                                  chat['isDelivered'] == -1
+                                      ? GestureDetector(
+                                        onTap: ()async{
+                                          print("cancel");
+                                          FileUploadService service=FileUploadService();
+                                          service.cancelUpload(chat['messageId']);
+                                          // Handle delete action
+                                          User? currentUser = FirebaseAuth.instance.currentUser;
+                                          String currentUserId = currentUser?.uid ?? '';
+                                          await DatabaseHelper().deleteMessageById(chat['messageId'],currentUserId,widget.receiverId);
+                                          widget.chatsList.removeWhere((message) => message['messageId'] == chat['messageId']);
+                                          setState(() {
+
+                                          });
+                                        },
+                                        child: Stack(
+                                          alignment: Alignment.center,
+                                          children: [
+                                            CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                            Icon(
+                                              Icons.close,  // Cross icon
+                                              color: Colors.white,  // You can change the color if needed
+                                              size: 12,  // Adjust the size as needed
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                      : Container(),
+
                                   chat['isDelivered']==0?SizedBox(height:20,width:20,child:GestureDetector(
                                     onTap: (){
                                         DatabaseHelper db=DatabaseHelper();
@@ -770,7 +816,7 @@ class ShowChatsState extends State<ShowChats> {
                                   final DateTime messageTime = DateTime.parse(chat['timestamp']);
                                   // Calculate the difference in hours
                                   final Duration difference = now.difference(messageTime);
-                                  _showPopupMenu(context, details.globalPosition, 'item[index]',currentChat['messageId'],chat,difference);
+                                  _showPopupMenu(chat['senderId'],context, details.globalPosition, 'item[index]',currentChat['messageId'],chat,difference);
                                 },
                                 child: Container(
                                   width:MediaQuery.of(context).size.width*0.35,
@@ -781,10 +827,50 @@ class ShowChatsState extends State<ShowChats> {
                                   ),
                                   child: ClipRRect(
                                       borderRadius: BorderRadius.circular(10),
-                                      child: Image(image: FileImage(File(fileDetails['path'])))
+                                      child: Stack(
+                                        children: [
+                                          Image(image: FileImage(File(fileDetails['path']))),
+                                          chat['isDelivered'] == -1
+                                              ? Positioned(
+                                            top:0,bottom: 0,left:0,right:0,
+                                            child: GestureDetector(
+                                              onTap: ()async{
+                                                print("cancel");
+                                                FileUploadService service=FileUploadService();
+                                                service.cancelUpload(chat['messageId']);
+                                                // Handle delete action
+                                                User? currentUser = FirebaseAuth.instance.currentUser;
+                                                String currentUserId = currentUser?.uid ?? '';
+                                                await DatabaseHelper().deleteMessageById(chat['messageId'],currentUserId,widget.receiverId);
+                                                widget.chatsList.removeWhere((message) => message['messageId'] == chat['messageId']);
+                                                setState(() {
+
+                                                });
+                                              },
+                                              child: Stack(
+                                                fit: StackFit.loose,
+                                                alignment: Alignment.center,
+                                                children: [
+                                                  CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    color: Color.fromRGBO(1,102,255,1),
+                                                  ),
+                                                  Icon(
+                                                    Icons.close,  // Cross icon
+                                                    color:  Color.fromRGBO(1,102,255,1), // You can change the color if needed
+                                                    size: 12,  // Adjust the size as needed
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          )
+                                              : Container(),
+                                        ],
+                                      )
                                   ),
                                 ),
                               ),
+
                               //Make this reusable after + Add Functionality
                               Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -903,7 +989,7 @@ class ShowChatsState extends State<ShowChats> {
                         final DateTime messageTime = DateTime.parse(chat['timestamp']);
                         // Calculate the difference in hours
                         final Duration difference = now.difference(messageTime);
-                        _showPopupMenu(context, details.globalPosition, 'item[index]',chat['messageId'],chat,difference);
+                        _showPopupMenu(chat['senderId'],context, details.globalPosition, 'item[index]',chat['messageId'],chat,difference);
                       },
                       onTap: (){
                         int i = index;
@@ -930,10 +1016,50 @@ print(i-nonImageCountBeforeTap);
                         ),
                         child: ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: Image(image: FileImage(File(fileDetails['path'])))
+                            child: Stack(
+                              children: [
+                                Image(image: FileImage(File(fileDetails['path']))),
+                                SizedBox(width:1),
+                                chat['isDelivered'] == -1
+                                    ? Positioned(
+                                  top:0,bottom: 0,left:0,right:0,
+                                      child: GestureDetector(
+                                                                        onTap: ()async{
+                                      print("cancel");
+                                      FileUploadService service=FileUploadService();
+                                      service.cancelUpload(chat['messageId']);
+                                      // Handle delete action
+                                      User? currentUser = FirebaseAuth.instance.currentUser;
+                                      String currentUserId = currentUser?.uid ?? '';
+                                      await DatabaseHelper().deleteMessageById(chat['messageId'],currentUserId,widget.receiverId);
+                                      widget.chatsList.removeWhere((message) => message['messageId'] == chat['messageId']);
+                                      setState(() {
+
+                                      });
+                                                                        },
+                                                                        child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Color.fromRGBO(1,102,255,1),
+                                        ),
+                                        Icon(
+                                          Icons.close,  // Cross icon
+                                          color:  Color.fromRGBO(1,102,255,1), // You can change the color if needed
+                                          size: 12,  // Adjust the size as needed
+                                        ),
+                                      ],
+                                                                        ),
+                                                                      ),
+                                    )
+                                    : Container(),
+                              ],
+                            )
                         ),
                       ),
                     ),
+
 
                     //Make this reusable after + Add Functionality
                     Row(

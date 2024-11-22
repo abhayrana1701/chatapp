@@ -37,11 +37,7 @@ class _ContactsModuleAddNewContactOptionState extends State<ContactsModuleAddNew
             ],
           ),
 
-          IconButton(
-              onPressed: (){},
-              tooltip: "Quick Add",
-              icon: Icon(Icons.qr_code_rounded),
-          )
+
 
         ],
       ),
