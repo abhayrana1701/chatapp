@@ -45,13 +45,13 @@ class _Signup1State extends State<Signup1> {
               AuthModuleHeading(heading: "Register"),
 
               //Input Fields
-              InputField(controller: emailController, hintText: "Email",showSuffixIcon: false,),
+              InputField(controller: emailController, hintText: "Email",showSuffixIcon: false,isObscure: false,),
               Align(alignment:Alignment.centerLeft,child: Text(" $emailErrorMessage",style: TextStyle(color:Colors.red),)),
               SizedBox(height:MediaQuery.of(context).size.height*0.03),
-              InputField(controller: passwordController, hintText: "Password",showSuffixIcon: true,),
+              InputField(controller: passwordController, hintText: "Password",showSuffixIcon: true,isObscure: true,),
               Align(alignment:Alignment.centerLeft,child: Text(" $passwordErrorMessage",style: TextStyle(color:Colors.red),)),
               SizedBox(height:MediaQuery.of(context).size.height*0.03),
-              InputField(controller: confirmPasswordController, hintText: "Confirm Password",showSuffixIcon: true,),
+              InputField(controller: confirmPasswordController, hintText: "Confirm Password",showSuffixIcon: true,isObscure: true,),
               Align(alignment:Alignment.centerLeft,child: Text(" $confirmPasswordErrorMessage",style: TextStyle(color:Colors.red),)),
 
               SizedBox(height:MediaQuery.of(context).size.height*0.02),

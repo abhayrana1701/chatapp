@@ -66,6 +66,10 @@ Future<void> storeReceivedFile({
 
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   String fcmType = message.data['fcmtype'];
+  await Firebase.initializeApp();
+  User? currentUser = FirebaseAuth.instance.currentUser;
+  String currentUserId = currentUser?.uid ?? '';
+  await DatabaseHelper().initDatabase(currentUserId);
   if (fcmType == 'chat') {
 
     if(message.data['messageType']=="file"){
@@ -79,13 +83,22 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       int size = int.parse(message.data['size'].toString());
       storeReceivedFile(size: size,senderId: senderId, receiverId: receiverId, messageId: messageId, fileUrl: fileUrl, fileName: fileName, fileType: fileType);
 
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      String currentUserId = currentUser?.uid ?? '';
+      DatabaseHelper db=DatabaseHelper();
+      Map<String, String?> settings = await db.getUserNotificationSettings(currentUserId);
+      if(settings['isSmartPingEnabled']!="yes"){
+        await showNotification(message);
+      }
+
+
     }else{
       print("Handling a background message: ${message.data}");
 
-      await Firebase.initializeApp();
+
       User? currentUser = FirebaseAuth.instance.currentUser;
       String currentUserId = currentUser?.uid ?? '';
-      await DatabaseHelper().initDatabase(currentUserId);
+
 
       if (message.data.isNotEmpty) {
 
@@ -97,17 +110,75 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         var initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
         flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
-        showNotification(message);
+       // showNotification(message);
+        User? currentUser = FirebaseAuth.instance.currentUser;
+        String currentUserId = currentUser?.uid ?? '';
         DatabaseHelper db=DatabaseHelper();
-        final settings = await db.getLanguageTranslationSettings(message.data['senderId']);
-        if(settings?['isLanguageTranslationEnabled']==1){
-          print("yes");
-          User? user = FirebaseAuth.instance.currentUser;
-          final translator = GoogleTranslator();
-          var translation = await translator.translate("${message.data['content']}", to: settings?["translateToKey"], from: settings?["translateFromKey"]);
-          db.updateMessageContent(user!.uid, message.data['senderId'],message.data['messageId'], translation.text,settings?["translateToKey"]);
-          print("Message translated");
+        Map<String, String?> settings = await db.getUserNotificationSettings(currentUserId);
+        if(settings['isSmartPingEnabled']=="yes"){
+          final String apiKey = 'AIzaSyAh_L-SnXqAHCk8POf02nxQN_37Y4Gqxwo'; // Replace with your actual API key
+          final String url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=$apiKey';
+
+          final response = await http.post(
+            Uri.parse(url),
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'contents': [
+                {
+                  'parts': [
+                    {'text': "The user wants to receive notification only for: ${settings['onlyNotifiedFor']}. The message is ${message.data['content']}. If user should receive notification then give 5 starts ***** in response, if user should not receive notification then give 5 @@@@@ in response."},
+                  ],
+                },
+              ],
+            }),
+          );
+
+          if (response.statusCode == 200) {
+            print(response.body);
+            // Parse the JSON
+            Map<String, dynamic> data = jsonDecode(response.body);
+
+            // Extract the text content
+            String text = data['candidates'][0]['content']['parts'][0]['text'];
+            if (text.contains('*****')) {
+              print("The text contains five continuous stars!");
+              final mylansettings = await db.getLanguageTranslationSettings(message.data['senderId']);
+              if(mylansettings?['isLanguageTranslationEnabled']==1){
+                print("yes");
+                User? user = FirebaseAuth.instance.currentUser;
+                final translator = GoogleTranslator();
+                var translation = await translator.translate("${message.data['content']}", to: mylansettings?["translateToKey"], from: mylansettings?["translateFromKey"]);
+                await showNotification(message,translation.text);
+                db.updateMessageContent(user!.uid, message.data['senderId'],message.data['messageId'], translation.text,mylansettings?["translateToKey"]);
+                print("Message translated");
+              }else{
+                await showNotification(message);
+              }
+            }
+
+
+          } else {
+
+            print("Error");
+          }
+        }else{
+          final mylansettings = await db.getLanguageTranslationSettings(message.data['senderId']);
+          if(mylansettings?['isLanguageTranslationEnabled']==1){
+            print("yes");
+            User? user = FirebaseAuth.instance.currentUser;
+            final translator = GoogleTranslator();
+            var translation = await translator.translate("${message.data['content']}", to: mylansettings?["translateToKey"], from: mylansettings?["translateFromKey"]);
+            await showNotification(message,translation.text);
+            db.updateMessageContent(user!.uid, message.data['senderId'],message.data['messageId'], translation.text,mylansettings?["translateToKey"]);
+            print("Message translated");
+          }else{
+            await showNotification(message);
+          }
         }
+       // DatabaseHelper db=DatabaseHelper();
+
         print('Message saved to SQLite');
       }
     }
@@ -148,7 +219,7 @@ Future<void> updateReceivedStatusInDb(RemoteMessage message) async {
 
 FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
-Future<void> showNotification(RemoteMessage message) async {
+Future<void> showNotification(RemoteMessage message,[String translated=""]) async {
   String senderName = message.data['username'] ?? 'Unknown Sender';
   String messageContent = message.data['content'] ?? 'No Content';
 
@@ -183,7 +254,7 @@ Future<void> showNotification(RemoteMessage message) async {
   await flutterLocalNotificationsPlugin.show(
     notificationId, // Unique notification ID
     senderName,
-    messageContent,
+    translated==""?messageContent:translated,
     platformChannelSpecifics,
     payload: 'Notification Payload',
   );
@@ -271,7 +342,18 @@ void main() async {
           String text = data['candidates'][0]['content']['parts'][0]['text'];
           if (text.contains('*****')) {
             print("The text contains five continuous stars!");
-            await showNotification(message);
+            final mylansettings = await db.getLanguageTranslationSettings(message.data['senderId']);
+            if(mylansettings?['isLanguageTranslationEnabled']==1){
+              print("yes");
+              User? user = FirebaseAuth.instance.currentUser;
+              final translator = GoogleTranslator();
+              var translation = await translator.translate("${message.data['content']}", to: mylansettings?["translateToKey"], from: mylansettings?["translateFromKey"]);
+              await showNotification(message,translation.text);
+              db.updateMessageContent(user!.uid, message.data['senderId'],message.data['messageId'], translation.text,mylansettings?["translateToKey"]);
+              print("Message translated");
+            }else{
+              await showNotification(message);
+            }
           }
 
 
@@ -280,7 +362,18 @@ void main() async {
           print("Error");
         }
       }else{
-        await showNotification(message);
+        final mylansettings = await db.getLanguageTranslationSettings(message.data['senderId']);
+        if(mylansettings?['isLanguageTranslationEnabled']==1){
+          print("yes");
+          User? user = FirebaseAuth.instance.currentUser;
+          final translator = GoogleTranslator();
+          var translation = await translator.translate("${message.data['content']}", to: mylansettings?["translateToKey"], from: mylansettings?["translateFromKey"]);
+          await showNotification(message,translation.text);
+          db.updateMessageContent(user!.uid, message.data['senderId'],message.data['messageId'], translation.text,mylansettings?["translateToKey"]);
+          print("Message translated");
+        }else{
+          await showNotification(message);
+        }
       }
     } else if(fcmType=="update_received_status"){
       updateReceivedStatusInDb(message);
@@ -340,8 +433,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       debugShowCheckedModeBanner: false,
-      //home: isLoggedIn ? Home() : Signin(),
-      home:Signin(),
+      home: isLoggedIn ? Home() : Signin(),
+      //home:Signin(),
     );
   }
 }

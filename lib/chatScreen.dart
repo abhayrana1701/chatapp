@@ -36,28 +36,37 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
 
   //TextEditingController
   TextEditingController chatController=TextEditingController();
-
+bool isLoading=true;
   //To store chats for displaying
   //Keep first index reserved for current user live chat
   List<Map<String, dynamic>> chatsList = [{}];
 
   //Scroll Controller for auto scrolling on receiving or sending message
   final ScrollController _scrollController = ScrollController();
-
+  String liveChatMesssage="";
   //Chat recommendations
   List chatRecommendations=[];
   Map<String, dynamic>? fcmData;
   final Random random = Random();
   late final int hi;
+  Timer? _timer;
+
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
     loadChats();
     hi= Random().nextInt(4) + 2; // Generates a random value from 2 to 5
+    DatabaseHelper db=DatabaseHelper();
+    User? currentUser = FirebaseAuth.instance.currentUser;
+    String currentUserId = currentUser?.uid ?? '';
+    _timer=Timer.periodic(Duration(milliseconds: 500), (timer) {
+      db.markMessagesAsRead(currentUserId,widget.receiverId);
+      if(isLoading){
+        loadChats();
+      }
 
-    Timer.periodic(Duration(milliseconds: 500), (timer) {
-      //loadChats();
+      //_scrollController.jumpTo(_scrollController.position.maxScrollExtent);
     });
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
@@ -125,6 +134,7 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
 
   @override
   void dispose() {
+    _timer?.cancel();  // Cancel the timer when the widget is disposed of
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -521,7 +531,13 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
 
 
 
-                Expanded(child:ShowChats(translateToKey: widget.translateToKey,chatsList: chatsList,scrollController: _scrollController,receiverId: widget.receiverId,)),
+                Expanded(child:ShowChats(startLoading: () {
+                  isLoading = true;
+                },stopLoading: (){
+
+                    isLoading=false;
+
+                },liveChatMessage: liveChatMesssage,translateToKey: widget.translateToKey,chatsList: chatsList,scrollController: _scrollController,receiverId: widget.receiverId,)),
 
 
                 !expandRecommendations?chatRecommendations.isEmpty?Container():SizedBox(height:50,child: ShowChatRecommendations(username: widget.name,recommendations: chatRecommendations,receiverId: widget.receiverId,
@@ -594,6 +610,7 @@ class ChatScreenState extends State<ChatScreen>with WidgetsBindingObserver  {
                     } ,
                     updateLiveChat: (liveChat) {
                       setState(() {
+                        liveChatMesssage=liveChat;
                         // Update the 'content' key of the first map
                         chatsList[0]['content'] = liveChat;
                       });

@@ -29,7 +29,7 @@ class _RecoverPasswordState extends State<RecoverPassword> {
               AuthModuleHeading(heading: "Recover Password"),
 
               //Input Fields
-              InputField(controller: emailController, hintText: "Email",showSuffixIcon: false,),
+              InputField(controller: emailController, hintText: "Email",showSuffixIcon: false,isObscure: false,),
 
               SizedBox(height:MediaQuery.of(context).size.height*0.02),
               Button(isAuthProcessing: false,text: "Continue",onPressed: (){}),

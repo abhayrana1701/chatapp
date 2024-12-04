@@ -123,7 +123,7 @@ class _Signup2State extends State<Signup2> {
                   Expanded(
                     child: Column(
                       children: [
-                        InputField(controller: firstNameController, hintText: "First Name",showSuffixIcon: false,),
+                        InputField(controller: firstNameController, hintText: "First Name",showSuffixIcon: false,isObscure: false,),
                         Align(alignment:Alignment.centerLeft,child: Text("$firstNameErrorMessage",style: TextStyle(color:Colors.red),)),
                       ],
                     ),
@@ -132,7 +132,7 @@ class _Signup2State extends State<Signup2> {
                   Expanded(
                     child: Column(
                       children: [
-                        InputField(controller: lastNameController, hintText: "Last Name",showSuffixIcon: false,),
+                        InputField(controller: lastNameController, hintText: "Last Name",showSuffixIcon: false,isObscure: false,),
                         Align(alignment:Alignment.centerLeft,child: Text("$lastNameErrorMessage",style: TextStyle(color:Colors.red),)),
                       ],
                     ),
@@ -140,7 +140,7 @@ class _Signup2State extends State<Signup2> {
                 ],
               ),
               SizedBox(height:MediaQuery.of(context).size.height*0.025),
-              InputField(controller: userNameController, hintText: "User Name",showSuffixIcon: false,),
+              InputField(controller: userNameController, hintText: "User Name",showSuffixIcon: false,isObscure: false,),
               Align(alignment:Alignment.centerLeft,child: Text("$userNameErrorMessage",style: TextStyle(color:Colors.red),)),
 
               SizedBox(height:MediaQuery.of(context).size.height*0.025),

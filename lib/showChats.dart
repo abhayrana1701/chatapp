@@ -25,8 +25,11 @@ class ShowChats extends StatefulWidget {
   ScrollController scrollController;
   String receiverId;
   String translateToKey;
+  String liveChatMessage;
+  Function stopLoading;
+  Function startLoading;
   // Attach the key here
-  ShowChats({Key? key, required this.translateToKey,required this.chatsList, required this.scrollController, required this.receiverId})
+  ShowChats({Key? key, required this.stopLoading,required this.startLoading,required this.liveChatMessage,required this.translateToKey,required this.chatsList, required this.scrollController, required this.receiverId})
       : super(key: key); // Pass the key to the superclass constructor
 
 
@@ -263,7 +266,8 @@ class ShowChatsState extends State<ShowChats> {
           if (index==0){return Container();}
 
           if (index==(widget.chatsList.length)) {
-            if(widget.chatsList[0]['content']==null || widget.chatsList[0]['content']==''){return Container();}
+            //if(widget.chatsList[0]['content']==null || widget.chatsList[0]['content']==''){return Container();}
+            if(widget.liveChatMessage==''){return Container();}
             return Align(
               alignment: Alignment.centerRight,
               child: Column(
@@ -279,7 +283,8 @@ class ShowChatsState extends State<ShowChats> {
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: Text(widget.chatsList[0]['content'],style: TextStyle(color:Colors.white),), // You may want to provide a message here
+                      child: Text(widget.liveChatMessage,style: TextStyle(color:Colors.white),),
+                      //child: Text(widget.chatsList[0]['content'],style: TextStyle(color:Colors.white),), // You may want to provide a message here
                     ),
                   ),
                   Text("Live",style: TextStyle(color: Colors.grey,fontSize: 12),)
@@ -314,7 +319,11 @@ class ShowChatsState extends State<ShowChats> {
 
                 // Access the 'livechat' field
                 String liveChat = snapshot.data!['liveChat'] ?? '';
+                if(liveChat==""){
+                  widget.startLoading();
+                }
                 if(liveChat!=''){
+                  widget.stopLoading();
                   // WidgetsBinding.instance.addPostFrameCallback((_) {
                   //   if (widget.scrollController.hasClients) {
                      widget.scrollController.jumpTo(widget.scrollController.position.maxScrollExtent);

@@ -65,10 +65,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver{
     InitializationSettings(android: initializationSettingsAndroid);
     flutterLocalNotificationsPlugin.initialize(initializationSettings);
     fetchUserDetails();
-    //Timer.periodic(Duration(milliseconds: 500), (timer) {
+    Timer.periodic(Duration(milliseconds: 500), (timer) {
 
       _fetchContactsWithRecentChat();
-   // });
+    });
 
   }
 
@@ -485,12 +485,12 @@ print(bDate);
                                   ],
 
                                   if(recentChat['messageType']=="text")...[
-                                    Flexible(
+                                    Expanded(
                                       child: Text(recentMessage,maxLines: 1, overflow: TextOverflow.ellipsis,),
                                     ),
                                     Container(width:10),
                                   ],
-                                  if (recentChat != null) // Only show if there's a recent chat
+                                  if (recentChat != null && recentChat['unreadCount']!=0) // Only show if there's a recent chat
                                     Container(
                                       width: 20,
                                       height: 20,
@@ -500,7 +500,7 @@ print(bDate);
                                         shape: BoxShape.circle,
                                       ),
                                       child: Text(
-                                        '1', // Replace with the actual unread message count if available
+                                        recentChat['unreadCount'].toString(), // Replace with the actual unread message count if available
                                         style: TextStyle(color: Colors.white),
                                       ),
                                     ),
@@ -627,6 +627,7 @@ print(bDate);
 
 
                               case 1:
+                                Navigator.of(context).pop();
                                 Navigator.of(context).push(MaterialPageRoute(builder: (context) => AddContacts(),)).then(
                                       (value) {
                                     _fetchContactsWithRecentChat();
@@ -766,148 +767,154 @@ print(bDate);
                                   },
                                 );
                               case 5:
+                                Navigator.of(context).pop();
                                 TextEditingController controller=TextEditingController();
                                 DatabaseHelper db=DatabaseHelper();
                                 User? currentUser = FirebaseAuth.instance.currentUser;
                                 String currentUserId = currentUser?.uid ?? '';
                                 Map<String, String?> settings = await db.getUserNotificationSettings(currentUserId);
                                 bool isSmartPingEnabled=settings['isSmartPingEnabled']=="yes"?true:false;
+                                print("settings['isSmartPingEnabled'] ${settings['isSmartPingEnabled']}");
                                 controller.text=settings['onlyNotifiedFor']!;
                                 showDialog(
                                   context: context,
                                   builder: (context) {
                                     return StatefulBuilder(
                                       builder: (BuildContext context, StateSetter setState) {
-                                        return Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          crossAxisAlignment: CrossAxisAlignment.center,
-                                          children: [
-                                            AnimatedGradientBorder(
-                                              borderSize: 2,
-                                              glowSize: 0,
-                                              gradientColors: [
-                                                Color(0xFFF953C6), // Dark Pink
-                                                Color(0xFF833AB4), // Purple
-                                                Color(0xFFE94057), // Pink-Red
-                                                Color(0xFFFF6F61)  // Coral
-                                              ],
-                                              borderRadius: BorderRadius.all(Radius.circular(10)),
-                                              child: Container(
-                                                width: MediaQuery.of(context).size.width * 0.7,
-                                                height: 250,
-                                                decoration: BoxDecoration(
-                                                  color: Color.fromRGBO(243, 244, 246, 1),
-                                                  borderRadius: BorderRadius.all(Radius.circular(10)),
-                                                ),
-                                                child: Padding(
-                                                  padding: const EdgeInsets.all(8.0),
-                                                  child: Column(
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                    children: [
-                                                      Row(
-                                                        children: [
-                                                          Expanded(
-                                                            child: Container(
-                                                              decoration: BoxDecoration(
-                                                                color: Colors.white,
-                                                                borderRadius: BorderRadius.all(Radius.circular(10)),
-                                                              ),
-                                                              child: Padding(
-                                                                padding: const EdgeInsets.all(8.0),
-                                                                child: Row(
-                                                                  mainAxisSize: MainAxisSize.max,
-                                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                  children: [
-                                                                    Text(
-                                                                      "Smart Ping",
-                                                                      style: TextStyle(fontSize: 25),
-                                                                    ),
-                                                                    CupertinoSwitch(
-                                                                      value: isSmartPingEnabled,
-                                                                      onChanged: (bool value) {
-                                                                        setState((){
+                                        return Dialog(
+                                          backgroundColor: Colors.transparent,
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            crossAxisAlignment: CrossAxisAlignment.center,
+                                            children: [
+                                              Container(),
+                                              AnimatedGradientBorder(
+                                                borderSize: 2,
+                                                glowSize: 0,
+                                                gradientColors: [
+                                                  Color(0xFFF953C6), // Dark Pink
+                                                  Color(0xFF833AB4), // Purple
+                                                  Color(0xFFE94057), // Pink-Red
+                                                  Color(0xFFFF6F61)  // Coral
+                                                ],
+                                                borderRadius: BorderRadius.all(Radius.circular(10)),
+                                                child: Container(
+                                                  width: MediaQuery.of(context).size.width * 0.7,
+                                                  height: 250,
+                                                  decoration: BoxDecoration(
+                                                    color: Color.fromRGBO(243, 244, 246, 1),
+                                                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                                                  ),
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.all(8.0),
+                                                    child: Column(
+                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                      children: [
+                                                        Row(
+                                                          children: [
+                                                            Expanded(
+                                                              child: Container(
+                                                                decoration: BoxDecoration(
+                                                                  color: Colors.white,
+                                                                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                                                                ),
+                                                                child: Padding(
+                                                                  padding: const EdgeInsets.all(8.0),
+                                                                  child: Row(
+                                                                    mainAxisSize: MainAxisSize.max,
+                                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                                    children: [
+                                                                      Text(
+                                                                        "Smart Ping",
+                                                                        style: TextStyle(fontSize: 25),
+                                                                      ),
+                                                                      CupertinoSwitch(
+                                                                        value: isSmartPingEnabled,
+                                                                        onChanged: (bool value) {
                                                                           setState((){
-                                                                            isSmartPingEnabled=!isSmartPingEnabled;
+                                                                            setState((){
+                                                                              isSmartPingEnabled=!isSmartPingEnabled;
+                                                                            });
+                                                                            db.updateSmartPingEnabled(currentUserId,isSmartPingEnabled?"yes":"no");
                                                                           });
-                                                                          db.updateSmartPingEnabled(currentUserId,isSmartPingEnabled?"yes":"no");
-                                                                        });
-                                                                      },
-                                                                    ),
-                                                                  ],
+                                                                        },
+                                                                      ),
+                                                                    ],
+                                                                  ),
                                                                 ),
                                                               ),
                                                             ),
+                                                          ],
+                                                        ),
+                                                        GestureDetector(
+                                                          onTap:(){
+                                          
+                                                          },
+                                                          child: Container(
+                                                            decoration: BoxDecoration(
+                                                              color: Colors.white,
+                                                              borderRadius: BorderRadius.all(Radius.circular(10)),
+                                                            ),
+                                                            child: Padding(
+                                                              padding: const EdgeInsets.all(8.0),
+                                                              child: Column(
+                                                                children: [
+                                                                  Row(
+                                                                    children: [
+                                                                      Expanded(
+                                                                        child: Text(
+                                                                          "Only Get Notified For: ",
+                                                                          overflow: TextOverflow.ellipsis,
+                                                                        ),
+                                                                      ),
+                                                                      Icon(CupertinoIcons.pencil),
+                                                                    ],
+                                                                  ),
+                                                                  Container(
+                                                                    child: Material(
+                                                                      child: TextField(
+                                                                        controller: controller,
+                                                                        cursorColor: Colors.black,
+                                                                        decoration: InputDecoration(
+                                                                          border: InputBorder.none,
+                                                                          fillColor: Colors.white,
+                                                                          filled: true,
+                                                                          contentPadding: EdgeInsets.only(right:4,left:4)
+                                                                        ),
+                                                                        onChanged: (value){
+                                                                          db.updateNotifiedFor(currentUserId, value);
+                                                                        },
+                                                                      ),
+                                                                    ),
+                                                                  )
+                                                                ],
+                                                              ),
+                                                            ),
                                                           ),
-                                                        ],
-                                                      ),
-                                                      GestureDetector(
-                                                        onTap:(){
-
-                                                        },
-                                                        child: Container(
+                                                        ),
+                                          
+                                                        Container(
                                                           decoration: BoxDecoration(
                                                             color: Colors.white,
                                                             borderRadius: BorderRadius.all(Radius.circular(10)),
                                                           ),
                                                           child: Padding(
                                                             padding: const EdgeInsets.all(8.0),
-                                                            child: Column(
-                                                              children: [
-                                                                Row(
-                                                                  children: [
-                                                                    Expanded(
-                                                                      child: Text(
-                                                                        "Only Get Notified For: ",
-                                                                        overflow: TextOverflow.ellipsis,
-                                                                      ),
-                                                                    ),
-                                                                    Icon(CupertinoIcons.pencil),
-                                                                  ],
-                                                                ),
-                                                                Container(
-                                                                  child: Material(
-                                                                    child: TextField(
-                                                                      controller: controller,
-                                                                      cursorColor: Colors.black,
-                                                                      decoration: InputDecoration(
-                                                                        border: InputBorder.none,
-                                                                        fillColor: Colors.white,
-                                                                        filled: true,
-                                                                        contentPadding: EdgeInsets.only(right:4,left:4)
-                                                                      ),
-                                                                      onChanged: (value){
-                                                                        db.updateNotifiedFor(currentUserId, value);
-                                                                      },
-                                                                    ),
-                                                                  ),
-                                                                )
-                                                              ],
+                                                            child: Text(
+                                                              "Only the essentials, when you need them—smart notifications that prioritize what matters.",
                                                             ),
                                                           ),
                                                         ),
-                                                      ),
-
-                                                      Container(
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.white,
-                                                          borderRadius: BorderRadius.all(Radius.circular(10)),
-                                                        ),
-                                                        child: Padding(
-                                                          padding: const EdgeInsets.all(8.0),
-                                                          child: Text(
-                                                            "Only the essentials, when you need them—smart notifications that prioritize what matters.",
-                                                          ),
-                                                        ),
-                                                      ),
-
-
-                                                    ],
+                                          
+                                          
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         );
                                       },
                                     );

@@ -509,7 +509,11 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
                                                                 scrollDirection: Axis.vertical,
                                                                 child: Column(
                                                                   children: [
-                                                                    Text(chat,style: TextStyle(color:Colors.black),softWrap: true,overflow: TextOverflow.visible,),
+                                                                    SelectableText(
+                                                                      chat, // Your chat text
+                                                                      style: TextStyle(color: Colors.black),
+                                                                      cursorColor:  Color.fromRGBO(1,102,255,1),
+                                                                    ),
                                                                   ],
                                                                 ),
                                                               ),
@@ -619,7 +623,7 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
                                                               borderRadius: BorderRadius.all(Radius.circular(15)),
                                                               child: Lottie.asset(
                                                                 "assets/loading3.json",
-                                                                fit: BoxFit.contain,
+                                                                 fit: BoxFit.contain,
                                                               ),
                                                             ),
                                                           )
@@ -677,7 +681,7 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
                                                                   setState((){
                                                                     isgeneratingc="yes";
                                                                   });
-                                                                  getChatFromAi("Guidelines for generating response is that generate a message based on my prompt. My prompt is: ${command.text.toString()}. Also keep in mind that you have to create only response that i can directly send regardless of saying you have not appropriate info or provide more context. My relationship with person to whom i will send ai generated messages is: ${widget.about}",1).then((value) {
+                                                                  getChatFromAi("Guidelines for generating response is that generate a message based on my prompt. My prompt is: ${command.text.toString()}. Also keep in mind that you have to create only response that i can directly send regardless of saying you have not appropriate info or provide more context. My relationship with person to whom i will send ai generated messages is: ${widget.about}. Generate a response of atleast 3 lines.",1).then((value) {
                                                                     setState(() {
                                                                       isgeneratingc="done";
                                                                       chat=value;
@@ -933,6 +937,7 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
                                                     children: [
                                                       InkWell(
                                                         onTap:()async{
+                                                          Navigator.of(context).pop();
                                                           User? currentUser = FirebaseAuth.instance.currentUser;
                                                           String currentUserId = currentUser?.uid ?? '';
                                                           // Pick multiple files
@@ -1055,6 +1060,7 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
 
                                                       InkWell(
                                                         onTap: ()async{
+                                                          Navigator.of(context).pop();
                                                           ImagePicker _picker=ImagePicker();
                                                           final XFile? pickedFile = await _picker.pickImage(source: ImageSource.camera);
                                                           if (pickedFile != null) {
@@ -1214,7 +1220,8 @@ class _ChatScreenInputFieldState extends State<ChatScreenInputField> {
                     shape: BoxShape.circle,
                     color:Color.fromRGBO(1,102,255,1)
                 ),
-                child:chatController.text.trim().isEmpty?Icon(Icons.mic,color:Colors.white):Icon(Icons.send_rounded,color:Colors.white),
+               // child:chatController.text.trim().isEmpty?Icon(Icons.mic,color:Colors.white):Icon(Icons.send_rounded,color:Colors.white),
+                child:Icon(Icons.send_rounded,color:Colors.white),
               ),
             )
 

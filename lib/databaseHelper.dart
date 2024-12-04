@@ -230,6 +230,15 @@ class DatabaseHelper {
   }
 
 
+  Future<void> markMessagesAsRead(String currentUserId, String userId2) async {
+    final db = await database;
+
+    // Update the isRead field to 1 for messages where userId != currentUserId
+    await db.rawUpdate(
+      "UPDATE chat_${currentUserId}_$userId2 SET isRead = 1 WHERE senderId != ? AND isRead = 0",
+      [currentUserId],
+    );
+  }
 
   Future<List<Map<String, dynamic>>> getRecentChats(String currentUserId, String userId2) async {
     final db = await database;
@@ -246,12 +255,13 @@ class DatabaseHelper {
 
     // Fetch the last inserted chat using ROWID
     final result = await db.rawQuery(
-        "SELECT * FROM chat_${currentUserId}_$userId2 WHERE ROWID = (SELECT MAX(ROWID) FROM chat_${currentUserId}_$userId2)"
+        "SELECT *, (SELECT COUNT(*) FROM chat_${currentUserId}_$userId2 WHERE isRead = 0 AND senderId != '$currentUserId') AS unreadCount FROM chat_${currentUserId}_$userId2 WHERE ROWID = (SELECT MAX(ROWID) FROM chat_${currentUserId}_$userId2)"
     );
 
-    // Return the result (either the last chat or an empty list if no chats exist)
+    // If there's no recent chat, return an empty list
     return result.isNotEmpty ? result : [];
   }
+
 
 
 
@@ -273,7 +283,7 @@ class DatabaseHelper {
       timestamp TEXT,
       messageType TEXT,
       translatedToKey TEXT DEFAULT 'none',
-      isRead INTEGER DEFAULT 0,        
+      isRead INTEGER DEFAULT 1,        
       isDelivered INTEGER DEFAULT 0, 
       isReceived INTEGER DEFAULT 0
     )

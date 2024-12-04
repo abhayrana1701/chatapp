@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:mychatapplication/validate.dart';
 import 'Resuable Components/showSnackbar.dart';
 import 'Authentication Module Components/authModuleHeading.dart';
 import 'Authentication Module Components/authOptionToggle.dart';
@@ -24,6 +25,16 @@ class Signin extends StatefulWidget {
 
 class _SigninState extends State<Signin> {
 
+  //Error messages
+  String emailErrorMessage="";
+  String passwordErrorMessage="";
+
+  String validatePassword(){
+    if(passwordController.text.toString().isEmpty){
+      return "Password cannot be empty";
+    }
+    return "";
+  }
 
   Future<void> fetchAndSaveUserDetails(String userId) async {
     try {
@@ -93,7 +104,7 @@ class _SigninState extends State<Signin> {
   bool isLogging=false;
 
   void signin()async{
-    FocusScope.of(context).unfocus();
+
 
     setState(() {
       isLogging=true;
@@ -159,9 +170,11 @@ class _SigninState extends State<Signin> {
               AuthModuleHeading(heading: "Sign In"),
           
               //Input Fields
-              InputField(controller: emailController, hintText: "Email",showSuffixIcon: false,),
+              InputField(controller: emailController, hintText: "Email",showSuffixIcon: false,isObscure: false,),
+              Align(alignment:Alignment.centerLeft,child: Text(" $emailErrorMessage",style: TextStyle(color:Colors.red),)),
               SizedBox(height:MediaQuery.of(context).size.height*0.04),
-              InputField(controller: passwordController, hintText: "Password",showSuffixIcon: true,),
+              InputField(controller: passwordController, hintText: "Password",showSuffixIcon: true,isObscure: true,),
+              Align(alignment:Alignment.centerLeft,child: Text(" $passwordErrorMessage",style: TextStyle(color:Colors.red),)),
           
               Align(
                 alignment: Alignment.centerRight,
@@ -176,7 +189,14 @@ class _SigninState extends State<Signin> {
                 ),
               ),
           
-              Button(isAuthProcessing: isLogging,text: "Log In",onPressed: (){signin();},),
+              Button(isAuthProcessing: isLogging,text: "Log In",onPressed: (){
+                FocusScope.of(context).unfocus();
+                emailErrorMessage=Validate.validateEmail(emailController.text.toString())!;
+                passwordErrorMessage=validatePassword();
+                if(emailErrorMessage=="" && passwordErrorMessage==""){
+                  signin();
+                }
+                },),
           
               SizedBox(height:MediaQuery.of(context).size.height*0.03),
               AuthoptionToggle(text1: "Don't have an account? ",text2: "Sign Up",navigateToScreen: Signup1(),)
